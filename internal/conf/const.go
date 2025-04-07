@@ -16,6 +16,8 @@ const (
 	AllowIndexed = "allow_indexed"
 	AllowMounted = "allow_mounted"
 	RobotsTxt    = "robots_txt"
+	FilingNumber = "filing_number"
+	FilingUrl    = "filing_url"
 
 	Logo                           = "logo" // multi-lines text, L1: light, EOL: dark
 	Favicon                        = "favicon"

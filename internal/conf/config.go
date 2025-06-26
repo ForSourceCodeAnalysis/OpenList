@@ -6,6 +6,12 @@ import (
 	"github.com/OpenListTeam/OpenList/v4/pkg/utils/random"
 )
 
+type RedisConf struct {
+	Addr     string `json:"addr" env:"ADDR"`
+	Password string `json:"password" env:"PASSWORD"`
+	DB       int    `json:"db" env:"DB"`
+}
+
 type Database struct {
 	Type        string `json:"type" env:"TYPE"`
 	Host        string `json:"host" env:"HOST"`
@@ -130,6 +136,7 @@ type Config struct {
 	FTP                   FTP         `json:"ftp" envPrefix:"FTP_"`
 	SFTP                  SFTP        `json:"sftp" envPrefix:"SFTP_"`
 	LastLaunchedVersion   string      `json:"last_launched_version"`
+	Redis                 RedisConf   `json:"redis" envPrefix:"REDIS_"`
 }
 
 func DefaultConfig(dataDir string) *Config {
@@ -155,6 +162,11 @@ func DefaultConfig(dataDir string) *Config {
 			Port:        0,
 			TablePrefix: "x_",
 			DBFile:      dbPath,
+		},
+		Redis: RedisConf{
+			Addr:     "127.0.0.1:6379",
+			Password: "",
+			DB:       0,
 		},
 		Meilisearch: Meilisearch{
 			Host:  "http://localhost:7700",

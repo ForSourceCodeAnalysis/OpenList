@@ -25,6 +25,7 @@ Author: %s
 Commit ID: %s
 Version: %s
 WebVersion: %s
+Extra: %s
 `, conf.BuiltAt, goVersion, conf.GitAuthor, conf.GitCommit, conf.Version, conf.WebVersion)
 		os.Exit(0)
 	},

@@ -3,6 +3,8 @@ package op
 import (
 	"context"
 	stderrors "errors"
+	"path"
+
 	stdpath "path"
 	"slices"
 	"strings"
@@ -508,6 +510,36 @@ func Rename(ctx context.Context, storage driver.Driver, srcPath, dstName string,
 		return errs.NotImplement
 	}
 	return errors.WithStack(err)
+}
+
+func BatchRename(ctx context.Context, storage driver.Driver, srcPath string, renameObjects []model.RenameObj, lazyCache ...bool) error {
+	srcPath = utils.FixAndCleanPath(srcPath)
+	srcRawObj, err := Get(ctx, storage, srcPath)
+	if err != nil {
+		return errors.WithMessage(err, "failed to get src object")
+	}
+	srcObj := model.UnwrapObj(srcRawObj)
+	srcDirPath := stdpath.Dir(srcPath)
+
+	switch s := storage.(type) {
+	case driver.BatchRename:
+		err := s.BatchRename(ctx, srcObj, renameObjects)
+		if err == nil {
+			ClearCache(storage, srcDirPath)
+			return nil
+		}
+		return err
+	default:
+		for _, renameObject := range renameObjects {
+			err := Rename(ctx, storage, path.Join(srcPath, renameObject.SrcName), renameObject.NewName, lazyCache...)
+			if err != nil {
+				log.Errorf("failed rename %s to %s: %+v", renameObject.ID, renameObject.NewName, err)
+				return err
+			}
+		}
+	}
+	return nil
+
 }
 
 // Copy Just copy file[s] in a storage

@@ -219,7 +219,7 @@ type QuotaResp struct {
 // local_mtime	string	否	1595919297	RequestBody参数	客户端修改时间，默认为当前时间戳
 type PrecreateReq struct {
 	Path       string   `json:"path"`                  // 上传后使用的文件绝对路径（需urlencode）
-	Size       uint64   `json:"size"`                  // 文件或目录大小，单位B
+	Size       int64    `json:"size"`                  // 文件或目录大小，单位B
 	Isdir      int      `json:"isdir"`                 // 是否为目录，0 文件，1 目录
 	BlockList  []string `json:"block_list"`            // 文件各分片MD5数组的json串
 	Autoinit   int      `json:"autoinit"`              // 固定值1

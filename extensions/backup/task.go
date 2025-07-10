@@ -68,15 +68,15 @@ func handleBackupUploadTask(ctx context.Context, t *asynq.Task) error {
 			logrus.Error(p, errors.WithStack(err))
 			continue
 		}
-		driverName := storage.Config().Name
-		h := getHash(driverName, f)
+		// driverName := storage.Config().Name
+		// h := getHash(driverName, f)
 
 		s := &stream.FileStream{
 			Obj: &model.Object{
 				Name:     info.Name(),
 				Size:     info.Size(),
 				Modified: info.ModTime(),
-				HashInfo: utils.NewHashInfoByMap(h),
+				// HashInfo: utils.NewHashInfoByMap(h),
 			},
 			Reader:       f,
 			Mimetype:     "application/octet-stream",

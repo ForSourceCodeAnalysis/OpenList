@@ -68,6 +68,7 @@ func putAsTask(ctx context.Context, dstDirPath string, file model.FileStreamer) 
 	if storage.Config().NoUpload {
 		return nil, errors.WithStack(errs.UploadNotSupported)
 	}
+	//如果是以任务的形式上传，会先存储在本地
 	if file.NeedStore() {
 		_, err := file.CacheFullAndWriter(nil, nil)
 		if err != nil {

@@ -1,4 +1,4 @@
-package _123_open
+package open123
 
 import (
 	"context"
@@ -6,94 +6,123 @@ import (
 	"strconv"
 	"time"
 
+	"errors"
+	"fmt"
+	"slices"
+	"strconv"
+	"time"
+
 	"github.com/OpenListTeam/OpenList/v4/internal/driver"
 	"github.com/OpenListTeam/OpenList/v4/internal/errs"
 	"github.com/OpenListTeam/OpenList/v4/internal/model"
-	"github.com/OpenListTeam/OpenList/v4/internal/op"
-	"github.com/OpenListTeam/OpenList/v4/internal/stream"
-	"github.com/OpenListTeam/OpenList/v4/pkg/utils"
+	"github.com/Xhofe/go-cache"
 )
 
-type Open123 struct {
-	model.Storage
-	Addition
-}
-
-func (d *Open123) Config() driver.Config {
-	return config
-}
-
-func (d *Open123) GetAddition() driver.Additional {
-	return &d.Addition
-}
-
-func (d *Open123) Init(ctx context.Context) error {
-	if d.UploadThread < 1 || d.UploadThread > 32 {
-		d.UploadThread = 3
-	}
-
-	return nil
-}
-
-func (d *Open123) Drop(ctx context.Context) error {
-	op.MustSaveDriverStorage(d)
-	return nil
-}
-
-func (d *Open123) List(ctx context.Context, dir model.Obj, args model.ListArgs) ([]model.Obj, error) {
-	fileLastId := int64(0)
-	parentFileId, err := strconv.ParseInt(dir.GetID(), 10, 64)
+// List 获取目录下的文件列表
+func (d *Open123) List(ctx context.Context, req *driver.DListReq) (driver.IListResp, error) {
+	pid, err := strconv.ParseInt(req.ID, 10, 64)
 	if err != nil {
 		return nil, err
 	}
-	res := make([]File, 0)
+	// 分页获取
+	if req.Page > 0 && req.Offset != "" {
+		if req.PageSize <= 0 || req.PageSize > 100 {
+			req.PageSize = 100
+		}
+		lastFileID, err := strconv.ParseInt(req.Offset, 10, 64)
+		if err != nil {
+			return nil, err
+		}
 
-	for fileLastId != -1 {
-		files, err := d.getFiles(parentFileId, 100, fileLastId)
+		r, err := d.getFiles(pid, req.PageSize, lastFileID)
+		if err != nil {
+			return nil, err
+		}
+		return r, nil
+
+	}
+	var lastFileID int64 = 0
+	res := make([]*Item, 0)
+
+	// 获取全部
+	for lastFileID != -1 {
+
+		lr, err := d.getFiles(pid, 100, lastFileID)
 		if err != nil {
 			return nil, err
 		}
 		// 目前123panAPI请求，trashed失效，只能通过遍历过滤
-		for i := range files.Data.FileList {
-			if files.Data.FileList[i].Trashed == 0 {
-				res = append(res, files.Data.FileList[i])
+		for i := range lr.FileList {
+			if lr.FileList[i].Trashed == 0 {
+				res = append(res, lr.FileList[i])
 			}
 		}
-		fileLastId = files.Data.LastFileId
+		lastFileID = lr.LastFileID
 	}
-	return utils.SliceConvert(res, func(src File) (model.Obj, error) {
-		return src, nil
-	})
+	return &ListObj{FileList: res, LastFileID: lastFileID}, nil
 }
 
-func (d *Open123) Link(ctx context.Context, file model.Obj, args model.LinkArgs) (*model.Link, error) {
-	fileId, _ := strconv.ParseInt(file.GetID(), 10, 64)
+// Link 获取链接
+func (d *Open123) Link(ctx context.Context, req *driver.DLinkReq) (driver.ILinkResp, error) {
+	fileID, _ := strconv.ParseInt(req.ID, 10, 64)
 
-	res, err := d.getDownloadInfo(fileId)
+	res, err := d.getDownloadInfo(fileID)
 	if err != nil {
 		return nil, err
 	}
 
-	link := model.Link{URL: res.Data.DownloadUrl}
+	return res, nil
+	link := model.Link{URL: res.DownloadUrl}
 	return &link, nil
 }
 
-func (d *Open123) MakeDir(ctx context.Context, parentDir model.Obj, dirName string) error {
-	parentFileId, _ := strconv.ParseInt(parentDir.GetID(), 10, 64)
+// MkDir 创建文件夹
+func (d *Open123) MkDir(ctx context.Context, req *driver.DMkdirReq) error {
+	parentFileID, err := strconv.ParseInt(req.ID, 10, 64)
+	if err != nil {
+		return err
+	}
 
-	return d.mkdir(parentFileId, dirName)
+	return d.mkdir(parentFileID, req.Name)
 }
 
-func (d *Open123) Move(ctx context.Context, srcObj, dstDir model.Obj) error {
-	toParentFileID, _ := strconv.ParseInt(dstDir.GetID(), 10, 64)
+// Move 移动文件
+func (d *Open123) Move(ctx context.Context, req *driver.DMoveReq) error {
+	toParentFileID, err := strconv.ParseInt(req.DstDir.ID, 10, 64)
+	if err != nil {
+		return err
+	}
+	ids := make([]int64, len(req.SrcObjs))
+	for i, srcObj := range req.SrcObjs {
+		id, err := strconv.ParseInt(srcObj.ID, 10, 64)
+		if err != nil {
+			return err
+		}
+		ids[i] = id
 
-	return d.move(srcObj.(File).FileId, toParentFileID)
+	}
+
+	return d.move(ids, toParentFileID)
 }
 
 func (d *Open123) Rename(ctx context.Context, srcObj model.Obj, newName string) error {
 	fileId, _ := strconv.ParseInt(srcObj.GetID(), 10, 64)
 
 	return d.rename(fileId, newName)
+}
+
+func (d *Open123) BatchRename(ctx context.Context, obj model.Obj, renameObjs []model.RenameObj) error {
+	rl := []string{}
+	for _, ro := range renameObjs {
+		fileID, err := strconv.ParseInt(ro.ID, 10, 64)
+		if err != nil {
+			return err
+		}
+		rl = append(rl, fmt.Sprintf("%d|%s", fileID, ro.NewName))
+
+	}
+
+	return d.batchRename(rl)
 }
 
 func (d *Open123) Copy(ctx context.Context, srcObj, dstDir model.Obj) error {
@@ -122,64 +151,126 @@ func (d *Open123) Remove(ctx context.Context, obj model.Obj) error {
 	return d.trash(fileId)
 }
 
-func (d *Open123) Put(ctx context.Context, dstDir model.Obj, file model.FileStreamer, up driver.UpdateProgress) (model.Obj, error) {
-	// 1. 创建文件
-	// parentFileID 父目录id，上传到根目录时填写 0
-	parentFileId, err := strconv.ParseInt(dstDir.GetID(), 10, 64)
-	if err != nil {
-		return nil, fmt.Errorf("parse parentFileID error: %v", err)
-	}
-	// etag 文件md5
-	etag := file.GetHash().GetHash(utils.MD5)
-	if len(etag) < utils.MD5.Width {
-		_, etag, err = stream.CacheFullAndHash(file, &up, utils.MD5)
+// func (d *Open123) Put(ctx context.Context, dstDir model.Obj, file model.FileStreamer, up driver.UpdateProgress) error {
+// 	parentFileId, err := strconv.ParseInt(dstDir.GetID(), 10, 64)
+// 	etag := file.GetHash().GetHash(utils.MD5)
+
+// 	if len(etag) < utils.MD5.Width {
+// 		_, etag, err = stream.CacheFullInTempFileAndHash(file, utils.MD5)
+// 		if err != nil {
+// 			return err
+// 		}
+// 	}
+// 	createResp, err := d.create(parentFileId, file.GetName(), etag, file.GetSize(), 2, false)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	if createResp.Data.Reuse {
+// 		return nil
+// 	}
+// 	up(10)
+
+// 	return d.Upload(ctx, file, createResp, up)
+// }
+
+// Copy 复制文件
+func (d *Open123) Copy(ctx context.Context, req *driver.DCopyReq) error {
+	return errs.NotSupport
+}
+
+// Remove 删除文件
+func (d *Open123) Remove(ctx context.Context, req *driver.DRemoveReq) error {
+	ids := make([]int64, 0, len(req.Objs))
+	for i, obj := range req.Objs {
+		id, err := strconv.ParseInt(obj.ID, 10, 64)
 		if err != nil {
 			return nil, err
 		}
+		ids[i] = id
 	}
-	createResp, err := d.create(parentFileId, file.GetName(), etag, file.GetSize(), 2, false)
-	if err != nil {
-		return nil, err
-	}
-	// 是否秒传
-	if createResp.Data.Reuse {
-		// 秒传成功才会返回正确的 FileID，否则为 0
-		if createResp.Data.FileID != 0 {
-			return File{
-				FileName: file.GetName(),
-				Size:     file.GetSize(),
-				FileId:   createResp.Data.FileID,
-				Type:     2,
-				Etag:     etag,
-			}, nil
+	//每次最多100
+	for cids := range slices.Chunk(ids, 100) {
+		if err := d.trash(cids); err != nil {
+			return err
 		}
 	}
-
-	// 2. 上传分片
-	err = d.Upload(ctx, file, createResp, up)
-	if err != nil {
-		return nil, err
-	}
-
-	// 3. 上传完毕
-	for range 60 {
-		uploadCompleteResp, err := d.complete(createResp.Data.PreuploadID)
-		// 返回错误代码未知，如：20103，文档也没有具体说
-		if err == nil && uploadCompleteResp.Data.Completed && uploadCompleteResp.Data.FileID != 0 {
-			up(100)
-			return File{
-				FileName: file.GetName(),
-				Size:     file.GetSize(),
-				FileId:   uploadCompleteResp.Data.FileID,
-				Type:     2,
-				Etag:     etag,
-			}, nil
-		}
-		// 若接口返回的completed为 false 时，则需间隔1秒继续轮询此接口，获取上传最终结果。
-		time.Sleep(time.Second)
-	}
-	return nil, fmt.Errorf("upload complete timeout")
+	return nil
 }
 
-var _ driver.Driver = (*Open123)(nil)
-var _ driver.PutResult = (*Open123)(nil)
+// Preup 上传预处理
+func (d *Open123) Preup(ctx context.Context, req *driver.DPreupReq) (driver.IPreupResp, error) {
+	etag := req.SrcObj.Hash[driver.HashTypeMD5]
+	if etag == "" {
+		return nil, errors.New("md5 is empty")
+	}
+
+	ParentFileID, err := strconv.ParseInt(req.DstDir.ID, 10, 64)
+	if err != nil {
+		return nil, err
+	}
+
+	duplicate := 1
+	if req.OverWrite {
+		duplicate = 2
+	}
+
+	preupres, err := d.preup(&PreupReq{
+		ParentFileID: ParentFileID,
+		Filename:     req.SrcObj.Name,
+		Etag:         etag,
+		Size:         req.SrcObj.Size,
+		Duplicate:    duplicate,
+		ContainDir:   false,
+	})
+	if err != nil {
+		return nil, err
+	}
+	// 预上传成功，缓存信息，官方文档没有明确说明预上传的有效期，暂且设置为48h
+	driver.DriverCache.Set(preupres.PreuploadID, SliceUploadCache{
+		Filename:          req.SrcObj.Name,
+		Hash:              etag,
+		PreupID:           preupres.PreuploadID,
+		Size:              req.SrcObj.Size,
+		SliceSize:         preupres.SliceSize,
+		UploadServer:      preupres.Servers[0],
+		UploadedBlockList: []int{},
+		SliceHash:         req.SrcObj.SliceHash,
+	}, cache.WithEx[any](time.Hour*48))
+	bl := []int{}
+	for range req.SrcObj.Size / preupres.SliceSize {
+		bl = append(bl, 0)
+
+	}
+	preupinfo := &PreupInfo{
+		BlockList: bl,
+		PreupResp: preupres,
+	}
+
+	return preupinfo, nil
+
+}
+
+// getUpload
+func getUploadSlices(size int64, sliceSize int64, uploaded []int) []int {
+	totalSlices := size/sliceSize + 1
+
+	exists := make(map[int]struct{})
+	for _, chunk := range uploaded {
+		exists[chunk] = struct{}{}
+	}
+
+	missing := []int{}
+	for i := 0; i < int(totalSlices); i++ {
+		if _, ok := exists[i]; !ok {
+			missing = append(missing, i)
+		}
+	}
+
+	return missing
+}
+
+// PutSlice 上传分片
+func (d *Open123) PutSlice(req *driver.DSliceUploadReq) error {
+
+	return nil
+}

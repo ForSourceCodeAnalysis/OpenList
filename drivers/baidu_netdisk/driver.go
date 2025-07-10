@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"path"
 	stdpath "path"
 	"strconv"
 	"time"
@@ -131,6 +132,19 @@ func (d *BaiduNetdisk) Rename(ctx context.Context, srcObj model.Obj, newName str
 		return srcObj, nil
 	}
 	return nil, nil
+}
+
+func (d *BaiduNetdisk) BatchRename(ctx context.Context, obj model.Obj, renameObjs []model.RenameObj) error {
+	data := []base.Json{}
+	for _, ro := range renameObjs {
+		data = append(data, base.Json{
+			"path":    path.Join(obj.GetPath(), ro.SrcName),
+			"newname": ro.NewName,
+		})
+	}
+
+	_, err := d.manage("rename", data)
+	return err
 }
 
 func (d *BaiduNetdisk) Copy(ctx context.Context, srcObj, dstDir model.Obj) error {

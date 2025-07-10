@@ -6,6 +6,7 @@ import (
 	"github.com/OpenListTeam/OpenList/v4/pkg/utils"
 )
 
+// 通过搜索发现，这个结构体没有使用
 type ObjWrapName struct {
 	Name string
 	Obj

@@ -99,10 +99,6 @@ func Init(e *gin.Engine) {
 		debug(g.Group("/debug"))
 	}
 
-	// extensions.RegisterRoute(map[string]*gin.RouterGroup{
-	// 	"backup": auth.Group("/admin", middlewares.AuthAdmin),
-	// })
-
 	static.Static(g, func(handlers ...gin.HandlerFunc) {
 		e.NoRoute(handlers...)
 	})

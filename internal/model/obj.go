@@ -19,6 +19,10 @@ type ObjUnwrap interface {
 	Unwrap() Obj
 }
 
+// 这个是用来统一网盘返回的文件对象的
+// 但是返回前端其实也是需要固定结构字段的，是否有必要定义一个接口？
+// 定义了接口，网盘返回数据后，需要实现此接口的方法，然后上一层再根据接口方法封装成统一字段的对象
+// 如果直接定义一个结构体，那么网盘返回的数据需要再返回给上层前转换成统一的结构体
 type Obj interface {
 	GetSize() int64
 	GetName() string
@@ -226,4 +230,17 @@ func (om *ObjMerge) InitHideReg(hides string) {
 
 func (om *ObjMerge) Reset() {
 	om.set.Clear()
+}
+
+// IDPath 有的网盘使用的是文件ID，有的网盘使用的是文件路径
+// 按需设置，按需使用
+type IDPath struct {
+	ID   string `json:"id" form:"id"`
+	Path string `json:"path" form:"path"`
+}
+
+type RenameObj struct {
+	ID      string `json:"id"` //文件id，部分网盘需要，如果没有可以不传
+	SrcName string `json:"src_name"`
+	NewName string `json:"new_name"`
 }

@@ -305,6 +305,7 @@ func saveDriverStorage(driver driver.Driver) error {
 // getStoragesByPath get storage by longest match path, contains balance storage.
 // for example, there is /a/b,/a/c,/a/d/e,/a/d/e.balance
 // getStoragesByPath(/a/d/e/f) => /a/d/e,/a/d/e.balance
+// balance是负载均衡目录，参考 https://docs.openlist.team/zh/guide/advanced/balance.html
 func getStoragesByPath(path string) []driver.Driver {
 	storages := make([]driver.Driver, 0)
 	curSlashCount := 0
@@ -337,6 +338,7 @@ func getStoragesByPath(path string) []driver.Driver {
 func GetStorageVirtualFilesByPath(prefix string) []model.Obj {
 	files := make([]model.Obj, 0)
 	storages := storagesMap.Values()
+	// 存储排序
 	sort.Slice(storages, func(i, j int) bool {
 		if storages[i].GetStorage().Order == storages[j].GetStorage().Order {
 			return storages[i].GetStorage().MountPath < storages[j].GetStorage().MountPath
@@ -345,13 +347,33 @@ func GetStorageVirtualFilesByPath(prefix string) []model.Obj {
 	})
 
 	prefix = utils.FixAndCleanPath(prefix)
-	set := mapset.NewSet[string]()
+	set := mapset.NewSet[string]() //使用set可以自动去重
+	//如果请求的路径是"/"，下面的逻辑可以获取所有的挂载目录，亦即最顶层的目录
+
 	for _, v := range storages {
+		//过滤掉负载均衡盘
 		mountPath := utils.GetActualMountPath(v.GetStorage().MountPath)
+		// mountPath可以不止有一层，比如可以把123pan的某个目录挂载到/union/123pan，把百度网盘的某个目录挂载到/union/second/baidu
+		// 把115盘的某个目录挂载到/union/three/four/five/115pan，把本地某个目录挂载到/union/123pan/local
+		// 这样就形成了一个虚拟的文件夹，union目录并没有像挂载目录一样直接对应某个网盘的目录
+		// mountPath取值为
+		// 	/union/123pan
+		// 	/union/123pan/local
+		// 	/union/second/baidu
+		// 	/union/three/four/five/115pan
+		// 所以当访问/union/123pan时，就需要过滤掉
+		// /union/123pan（第一个验证条件，因为这里要获取的是虚拟文件夹，123pan的文件需要通过api获取），
+		// 以及剩余的存储（第二个验证条件），但是不能过滤掉/union/123pan/local
 		// Exclude prefix itself and non prefix
 		if len(prefix) >= len(mountPath) || !utils.IsSubPath(prefix, mountPath) {
 			continue
 		}
+		// 根据上面的过滤条件，走到这里，prefix是/union/123pan， mountPath是/union/123pan/local
+		// 下面的执行逻辑是
+		// 1. /union/123pan/local去除前缀/union/123pan/
+		// 2. 把 local 按 "/"最多分割成两份（这里举的例子只有一份，但是可以有更深层的目录）
+		// 3. 得到的name就是local目录名称
+		// 4. 后续会把local加到123pan api获取的列表中
 		name := strings.SplitN(strings.TrimPrefix(mountPath[len(prefix):], "/"), "/", 2)[0]
 		if set.Add(name) {
 			files = append(files, &model.Object{
@@ -368,6 +390,7 @@ func GetStorageVirtualFilesByPath(prefix string) []model.Obj {
 var balanceMap generic_sync.MapOf[string, int]
 
 // GetBalancedStorage get storage by path
+// 正常情况下，一个目录应该只能匹配到一个驱动，或者0个（虚拟目录）
 func GetBalancedStorage(path string) driver.Driver {
 	path = utils.FixAndCleanPath(path)
 	storages := getStoragesByPath(path)

@@ -20,7 +20,7 @@ func getBackupsDB(pageIndex, pageSize int) ([]Backup, int64, error) {
 	tdb := db.GetDb().Model(&Backup{})
 	var count int64
 	if err := tdb.Count(&count).Error; err != nil {
-		return nil, 0, errors.Wrapf(err, "failed get storages count")
+		return nil, 0, errors.Wrapf(err, "failed get backups count")
 	}
 	var ts []Backup
 	if err := tdb.Offset((pageIndex - 1) * pageSize).Limit(pageSize).Find(&ts).Error; err != nil {
@@ -31,14 +31,14 @@ func getBackupsDB(pageIndex, pageSize int) ([]Backup, int64, error) {
 func getServerEnabledBackupDB() ([]Backup, error) {
 	var ts []Backup
 	if err := db.GetDb().Where("`disabled`=? ", false).Find(&ts).Error; err != nil {
-		return nil, errors.Wrapf(err, "failed get storages count")
+		return nil, errors.Wrapf(err, "failed get enabled backups")
 	}
 	return ts, nil
 }
 func getBackupByIDDB(id uint64) (*Backup, error) {
 	var b Backup
 	if err := db.GetDb().First(&b, id).Error; err != nil {
-		return nil, errors.Wrapf(err, "failed get old user")
+		return nil, errors.Wrapf(err, "failed get backup id:%v", id)
 	}
 	return &b, nil
 }
@@ -100,7 +100,7 @@ func getBackupFilesDB(bid uint64, page, pageSize int) ([]File, int64, error) {
 	var count int64
 
 	if err := tdb.Where("backup_id=?", bid).Count(&count).Error; err != nil {
-		return nil, 0, errors.Wrapf(err, "failed get last backup count")
+		return nil, 0, errors.Wrapf(err, "failed get last backup file count")
 	}
 	var ts []File
 	if err := tdb.Where("backup_id=?", bid).Offset((page - 1) * pageSize).Limit(pageSize).Find(&ts).Error; err != nil {

@@ -440,7 +440,7 @@ func (d *BaiduNetdisk) SliceUpload(c context.Context, req *tables.SliceUpload, s
 // Preup 预上传(自定以接口，为了适配自定义的分片上传)
 func (d *BaiduNetdisk) Preup(ctx context.Context, srcobj model.Obj, req *reqres.PreupReq) (*model.PreupInfo, error) {
 	return &model.PreupInfo{
-		SliceSize: uint64(d.getSliceSize(int64(req.Size))),
+		SliceSize: d.getSliceSize(req.Size),
 	}, nil
 }
 

@@ -174,7 +174,6 @@ const (
 	RequestHeaderKey
 	UserAgentKey
 	PathKey
-	StorageKey
 	SharingIDKey
 	StorageKey
 )

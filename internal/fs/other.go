@@ -26,6 +26,17 @@ func rename(ctx context.Context, srcPath, dstName string, lazyCache ...bool) err
 	}
 	return op.Rename(ctx, storage, srcActualPath, dstName, lazyCache...)
 }
+
+func batchRename(ctx context.Context, srcPath string, renameObjs []model.RenameObj, lazyCache ...bool) error {
+	storage, srcActualPath, err := op.GetStorageAndActualPath(srcPath)
+	if err != nil {
+		return errors.WithMessage(err, "failed get storage")
+	}
+
+	return op.BatchRename(ctx, storage, srcActualPath, renameObjs, lazyCache...)
+
+}
+
 func remove(ctx context.Context, path string) error {
 	storage, actualPath, err := op.GetStorageAndActualPath(path)
 	if err != nil {

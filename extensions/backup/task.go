@@ -68,15 +68,15 @@ func handleBackupUploadTask(ctx context.Context, t *asynq.Task) error {
 			logrus.Error(p, errors.WithStack(err))
 			continue
 		}
-		driverName := storage.Config().Name
-		h := getHash(driverName, f)
+		// driverName := storage.Config().Name
+		// h := getHash(driverName, f)
 
 		s := &stream.FileStream{
 			Obj: &model.Object{
 				Name:     info.Name(),
 				Size:     info.Size(),
 				Modified: info.ModTime(),
-				HashInfo: utils.NewHashInfoByMap(h),
+				// HashInfo: utils.NewHashInfoByMap(h),
 			},
 			Reader:       f,
 			Mimetype:     "application/octet-stream",
@@ -100,6 +100,7 @@ func handleBackupUploadTask(ctx context.Context, t *asynq.Task) error {
 	return nil
 }
 
+// 本身就是通过监听或对比修改时间的方式判定变动的，基本可以认定文件是已经修改了，不会存在秒传的情况，所以没必要计算hash
 func getHash(driverName string, f *os.File) (hash map[*utils.HashType]string) {
 	hash = make(map[*utils.HashType]string)
 	switch driverName {

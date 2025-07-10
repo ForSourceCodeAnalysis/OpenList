@@ -6,6 +6,7 @@ import (
 	"github.com/OpenListTeam/OpenList/v4/internal/model"
 )
 
+// Driver 网盘驱动
 type Driver interface {
 	Meta
 	Reader
@@ -13,6 +14,7 @@ type Driver interface {
 	// Other
 }
 
+// Meta 网盘元信息接口
 type Meta interface {
 	Config() Config
 	// GetStorage just get raw storage, no need to implement, because model.Storage have implemented
@@ -71,6 +73,9 @@ type Move interface {
 
 type Rename interface {
 	Rename(ctx context.Context, srcObj model.Obj, newName string) error
+}
+type BatchRename interface {
+	BatchRename(ctx context.Context, obj model.Obj, renameObjs []model.RenameObj) error
 }
 
 type Copy interface {

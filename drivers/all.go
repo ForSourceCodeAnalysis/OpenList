@@ -83,3 +83,10 @@ import (
 func All() {
 
 }
+
+// GetDriverConfigMeta
+func GetDriverConfigMeta() map[string][]driver.FieldMeta {
+	return map[string][]driver.FieldMeta{
+		driver.DriverName123Open: open123.ConfigMeta(),
+	}
+}

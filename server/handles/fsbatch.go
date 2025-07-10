@@ -136,11 +136,8 @@ func FsRecursiveMove(c *gin.Context) {
 }
 
 type BatchRenameReq struct {
-	SrcDir        string `json:"src_dir"`
-	RenameObjects []struct {
-		SrcName string `json:"src_name"`
-		NewName string `json:"new_name"`
-	} `json:"rename_objects"`
+	SrcDir        string            `json:"src_dir"`
+	RenameObjects []model.RenameObj `json:"rename_objects"`
 }
 
 func FsBatchRename(c *gin.Context) {
@@ -168,22 +165,14 @@ func FsBatchRename(c *gin.Context) {
 			return
 		}
 	}
-	common.GinWithValue(c, conf.MetaKey, meta)
-	for _, renameObject := range req.RenameObjects {
-		if renameObject.SrcName == "" || renameObject.NewName == "" {
-			continue
-		}
-		err = checkRelativePath(renameObject.NewName)
-		if err != nil {
-			common.ErrorResp(c, err, 403)
-			return
-		}
-		filePath := fmt.Sprintf("%s/%s", reqPath, renameObject.SrcName)
-		if err := fs.Rename(c.Request.Context(), filePath, renameObject.NewName); err != nil {
-			common.ErrorResp(c, err, 500)
-			return
-		}
+	c.Set("meta", meta)
+
+	err = fs.BatchRename(c, req.SrcDir, req.RenameObjects)
+	if err != nil {
+		common.ErrorResp(c, err, 500)
+		return
 	}
+
 	common.SuccessResp(c)
 }
 

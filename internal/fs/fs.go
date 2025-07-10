@@ -92,6 +92,14 @@ func Rename(ctx context.Context, srcPath, dstName string, lazyCache ...bool) err
 	return err
 }
 
+func BatchRename(ctx context.Context, srcPath string, renameObjs []model.RenameObj, lazyCache ...bool) error {
+	err := batchRename(ctx, srcPath, renameObjs)
+	if err != nil {
+		log.Errorf("failed batch rename %s: %+v", srcPath, err)
+	}
+	return err
+}
+
 func Remove(ctx context.Context, path string) error {
 	err := remove(ctx, path)
 	if err != nil {

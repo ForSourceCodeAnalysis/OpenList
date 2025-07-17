@@ -54,6 +54,11 @@ func CreateStorage(ctx context.Context, storage model.Storage) (uint, error) {
 	if err != nil {
 		return 0, errors.WithMessage(err, "failed get driver new")
 	}
+	//校验挂载路径
+	if err := validateMountPath(storage.MountPath); err != nil {
+		return 0, errors.WithMessage(err, "failed validate mount path")
+	}
+
 	storageDriver := driverNew()
 	// insert storage to database
 	err = db.CreateStorage(&storage)
@@ -68,6 +73,21 @@ func CreateStorage(ctx context.Context, storage model.Storage) (uint, error) {
 	}
 	log.Debugf("storage %+v is created", storageDriver)
 	return storage.ID, nil
+}
+
+// 不允许混合挂载
+func validateMountPath(mountPath string) error {
+	s, _, err := db.GetStorages(1, 999)
+	if err != nil {
+		return err
+	}
+	for _, v := range s {
+		if utils.IsSubPath(v.MountPath, mountPath) {
+			return errors.New("不允许混合挂载")
+		}
+	}
+	return nil
+
 }
 
 // LoadStorage load exist storage in db to memory

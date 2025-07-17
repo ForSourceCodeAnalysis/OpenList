@@ -1,11 +1,5 @@
 package open123
 
-import (
-	"net/http"
-
-	"github.com/go-resty/resty/v2"
-)
-
 // // 创建文件 V2
 // func (d *Open123) create(parentFileID int64, filename string, etag string, size int64, duplicate int, containDir bool) (*UploadCreateResp, error) {
 // 	var resp UploadCreateResp
@@ -26,18 +20,18 @@ import (
 // 	"github.com/go-resty/resty/v2"
 // )
 
-func (d *Open123) preup(requ *PreupReq) (*PreupResp, error) {
-	r := &BaseResp{
-		Code: -1,
-		Data: &PreupResp{},
-	}
-	_, err := d.Request(d.qpsInstance[preupCreateAPI], http.MethodPost, func(req *resty.Request) {
-		req.SetBody(requ).SetHeader("Content-Type", "application/json")
+// func (d *Open123) preup(requ *PreupReq) (*PreupResp, error) {
+// 	r := &BaseResp{
+// 		Code: -1,
+// 		Data: &PreupResp{},
+// 	}
+// 	_, err := d.Request(d.qpsInstance[preupCreateAPI], http.MethodPost, func(req *resty.Request) {
+// 		req.SetBody(requ).SetHeader("Content-Type", "application/json")
 
-	}, r)
+// 	}, r)
 
-	return r.Data.(*PreupResp), err
-}
+// 	return r.Data.(*PreupResp), err
+// }
 
 // 上传分片 V2
 // func (d *Open123) Upload(ctx context.Context, file model.FileStreamer, createResp *UploadCreateResp, up driver.UpdateProgress) error {

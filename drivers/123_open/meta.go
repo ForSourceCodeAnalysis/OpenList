@@ -4,82 +4,40 @@ import (
 	"time"
 
 	"github.com/OpenListTeam/OpenList/v4/internal/driver"
+	"github.com/OpenListTeam/OpenList/v4/internal/op"
 )
 
-// var _ driver.IDriver = (*Open123)(nil)
+type Addition struct {
+	//  refresh_token方式的AccessToken  【对个人开发者暂未开放】
+	RefreshToken string `json:"RefreshToken" required:"false"`
 
-// Open123 123pan open api 配置
-// 参考： https://123yunpan.yuque.com/org-wiki-123yunpan-muaork/cr6ced/hpengmyg32blkbg8
-type Open123 struct {
-	// 个人开发者（client_id）/第三方授权应用(app_id),使用时需根据refresh_token判断具体是哪个，下同
-	ClientID     string    `json:"client_id"`
-	ClientSecret string    `json:"client_secret"` // 个人开发者（client_secret）/第三方授权应用(secret_id)
-	AccessToken  string    `json:"access_token"`
-	ExpiredAt    time.Time `json:"expired_at"`    // token过期时间
-	RefreshToken string    `json:"refresh_token"` // 仅第三方授权应用
-	Scope        string    `json:"scope"`         // 仅第三方授权应用
-	TokenType    string    `json:"token_type"`    // 仅第三方授权应用
-	// Username string `json:"username"`
-	// Password string `json:"password"`
-	qpsInstance map[string]*APIInfo // QPS限制是和账号绑定的
+	//  通过 https://www.123pan.com/developer 申请
+	ClientID     string `json:"ClientID" required:"false"`
+	ClientSecret string `json:"ClientSecret" required:"false"`
+
+	//  直接写入AccessToken
+	AccessToken string `json:"AccessToken" required:"false"`
+
+	ExpiredAt time.Time `json:"ExpiredAt" ignore:"true"`
+
+	//  用户名+密码方式登录的AccessToken可以兼容
+	//Username string `json:"username" required:"false"`
+	//Password string `json:"password" required:"false"`
+
+	//  上传线程数
+	UploadThread int `json:"UploadThread" type:"number" default:"3" help:"the threads of upload"`
+
+	driver.RootID
 }
 
-// Init  初始化
-func (d *Open123) Init() error {
-	d.qpsInstance = map[string]*APIInfo{
-		accessTokenAPI:    initAPIInfo(baseURL+accessTokenAPI, 1),
-		refreshTokenAPI:   initAPIInfo(baseURL+refreshTokenAPI, 0),
-		userInfoAPI:       initAPIInfo(baseURL+userInfoAPI, 1),
-		fileListAPI:       initAPIInfo(baseURL+fileListAPI, 3),
-		downloadInfoAPI:   initAPIInfo(baseURL+downloadInfoAPI, 0),
-		mkdirAPI:          initAPIInfo(baseURL+mkdirAPI, 2),
-		moveAPI:           initAPIInfo(baseURL+moveAPI, 1),
-		renameAPI:         initAPIInfo(baseURL+renameAPI, 0),
-		trashAPI:          initAPIInfo(baseURL+trashAPI, 1),
-		preupCreateAPI:    initAPIInfo(baseURL+preupCreateAPI, 0),
-		sliceUploadAPI:    initAPIInfo(sliceUploadAPI, 0),
-		uploadCompleteAPI: initAPIInfo(baseURL+uploadCompleteAPI, 0),
-		uploadURLAPI:      initAPIInfo(baseURL+uploadURLAPI, 0),
-		singleUploadAPI:   initAPIInfo(singleUploadAPI, 0),
-	}
-	return nil
+var config = driver.Config{
+	Name:        "123 Open",
+	DefaultRoot: "0",
+	LocalSort:   true,
 }
 
-// Name 获取驱动名称
-func (d *Open123) Name() string {
-	return driver.DriverName123Open
-}
-
-// SortSupported 是否支持排序
-func (d *Open123) SortSupported() bool {
-	return false
-}
-
-// IsAccessTokenExpired 检测 AccessToken 是否过期
-func (d *Open123) IsAccessTokenExpired() bool {
-	return time.Now().After(d.ExpiredAt)
-}
-
-// ConfigMeta 获取配置参数
-func ConfigMeta() []driver.FieldMeta {
-	return []driver.FieldMeta{
-		driver.FieldMeta{
-			Name:     "client_id",
-			Type:     driver.TypeText,
-			Required: true,
-			Help:     "个人开发者（client_id）或第三方授权应用（app_id）",
-		},
-		driver.FieldMeta{
-			Name:     "client_secret",
-			Type:     driver.TypeText,
-			Required: true,
-			Help:     "个人开发者（client_secret）或第三方授权应用（secret_id）",
-		},
-		driver.FieldMeta{
-			Name:     "refresh_token",
-			Type:     driver.TypeText,
-			Required: false,
-			Help:     "第三方授权应用所需的refresh_token",
-		},
-	}
+func init() {
+	op.RegisterDriver(func() driver.Driver {
+		return &Open123{}
+	})
 }

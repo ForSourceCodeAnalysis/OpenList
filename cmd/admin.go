@@ -35,6 +35,7 @@ var AdminCmd = &cobra.Command{
 	},
 }
 
+// RandomPasswordCmd 生成随机密码并设置为新的管理员密码
 var RandomPasswordCmd = &cobra.Command{
 	Use:   "random",
 	Short: "Reset admin user's password to a random string",
@@ -45,6 +46,7 @@ var RandomPasswordCmd = &cobra.Command{
 	},
 }
 
+// SetPasswordCmd 设置管理员密码
 var SetPasswordCmd = &cobra.Command{
 	Use:   "set",
 	Short: "Set admin user's password",
@@ -57,6 +59,7 @@ var SetPasswordCmd = &cobra.Command{
 	},
 }
 
+// ShowTokenCmd 显示token，这里的token不是登录token，是下载时需要验证的，长期有效
 var ShowTokenCmd = &cobra.Command{
 	Use:   "token",
 	Short: "Show admin token",

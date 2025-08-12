@@ -25,7 +25,7 @@ var DefaultTimeout = time.Second * 30
 func InitClient() {
 	NoRedirectClient = resty.New().
 		SetHeader("user-agent", UserAgent).
-		SetTLSClientConfig(&tls.Config{InsecureSkipVerify: conf.Conf.TlsInsecureSkipVerify}).
+		SetTLSClientConfig(&tls.Config{InsecureSkipVerify: conf.Conf.TLSInsecureSkipVerify}).
 		SetRedirectPolicy(
 			resty.RedirectPolicyFunc(func(req *http.Request, via []*http.Request) error {
 				return http.ErrUseLastResponse
@@ -44,7 +44,7 @@ func NewRestyClient() *resty.Client {
 		SetRetryCount(3).
 		SetRetryResetReaders(true).
 		SetTimeout(DefaultTimeout).
-		SetTLSClientConfig(&tls.Config{InsecureSkipVerify: conf.Conf.TlsInsecureSkipVerify})
+		SetTLSClientConfig(&tls.Config{InsecureSkipVerify: conf.Conf.TLSInsecureSkipVerify})
 	return client
 }
 

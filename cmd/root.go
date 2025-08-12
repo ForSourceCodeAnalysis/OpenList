@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
 	Use:   "openlist",
 	Short: "A file list program that supports multiple storage.",
@@ -19,6 +20,7 @@ built with love by OpenListTeam.
 Complete documentation is available at https://doc.oplist.org/`,
 }
 
+// Execute start exec command
 func Execute() {
 	if err := RootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)

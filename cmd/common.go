@@ -12,6 +12,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// Init 初始化
 func Init() {
 	bootstrap.InitConfig()
 	bootstrap.Log()
@@ -22,6 +23,7 @@ func Init() {
 	bootstrap.InitUpgradePatch()
 }
 
+// Release 释放资源
 func Release() {
 	db.Close()
 }

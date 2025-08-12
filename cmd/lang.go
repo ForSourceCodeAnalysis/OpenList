@@ -21,9 +21,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// KV 键值对
 type KV[V any] map[string]V
 
-type Drivers KV[KV[interface{}]]
+// Drivers 驱动
+type Drivers KV[KV[any]]
 
 var frontendPath string
 
@@ -78,7 +80,7 @@ func writeFile(name string, data interface{}) {
 	}
 }
 
-func generateDriversJson() {
+func generateDriversJSON() {
 	drivers := make(Drivers)
 	drivers["drivers"] = make(KV[interface{}])
 	drivers["config"] = make(KV[interface{}])
@@ -114,7 +116,7 @@ func generateDriversJson() {
 	writeFile("drivers", drivers)
 }
 
-func generateSettingsJson() {
+func generateSettingsJSON() {
 	settings := data.InitialSettings()
 	settingsLang := make(KV[any])
 	for _, setting := range settings {
@@ -146,8 +148,8 @@ var LangCmd = &cobra.Command{
 		if err != nil {
 			utils.Log.Fatalf("failed create folder: %s", err.Error())
 		}
-		generateDriversJson()
-		generateSettingsJson()
+		generateDriversJSON()
+		generateSettingsJSON()
 	},
 }
 

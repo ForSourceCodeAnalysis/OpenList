@@ -12,6 +12,7 @@ import (
 	"github.com/go-resty/resty/v2"
 )
 
+// DelAdminCacheOnline Delete admin cache
 func DelAdminCacheOnline() {
 	admin, err := op.GetAdmin()
 	if err != nil {
@@ -21,17 +22,18 @@ func DelAdminCacheOnline() {
 	DelUserCacheOnline(admin.Username)
 }
 
+// DelUserCacheOnline 删除用户缓存
 func DelUserCacheOnline(username string) {
-	client := resty.New().SetTimeout(1 * time.Second).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: conf.Conf.TlsInsecureSkipVerify})
+	client := resty.New().SetTimeout(1 * time.Second).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: conf.Conf.TLSInsecureSkipVerify})
 	token := setting.GetStr(conf.Token)
-	port := conf.Conf.Scheme.HttpPort
+	port := conf.Conf.Scheme.HTTPPort
 	u := fmt.Sprintf("http://localhost:%d/api/admin/user/del_cache", port)
 	if port == -1 {
-		if conf.Conf.Scheme.HttpsPort == -1 {
+		if conf.Conf.Scheme.HTTPSPort == -1 {
 			utils.Log.Warnf("[del_user_cache] no open port")
 			return
 		}
-		u = fmt.Sprintf("https://localhost:%d/api/admin/user/del_cache", conf.Conf.Scheme.HttpsPort)
+		u = fmt.Sprintf("https://localhost:%d/api/admin/user/del_cache", conf.Conf.Scheme.HTTPSPort)
 	}
 	res, err := client.R().SetHeader("Authorization", token).SetQueryParam("username", username).Post(u)
 	if err != nil {

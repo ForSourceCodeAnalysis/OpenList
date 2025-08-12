@@ -14,8 +14,10 @@ var (
 )
 
 var (
+	// Conf 全局配置
 	Conf *Config
-	URL  *url.URL
+	// URL 配置的URL
+	URL *url.URL
 )
 
 var SlicesMap = make(map[string][]string)

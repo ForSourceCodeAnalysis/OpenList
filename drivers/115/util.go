@@ -36,7 +36,7 @@ func (d *Pan115) login() error {
 	opts := []driver115.Option{
 		driver115.UA(d.getUA()),
 		func(c *driver115.Pan115Client) {
-			c.Client.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: conf.Conf.TlsInsecureSkipVerify})
+			c.Client.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: conf.Conf.TLSInsecureSkipVerify})
 		},
 	}
 	d.client = driver115.New(opts...)

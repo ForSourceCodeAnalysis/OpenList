@@ -8,6 +8,7 @@ import (
 	"github.com/OpenListTeam/OpenList/v4/internal/op"
 	"github.com/OpenListTeam/OpenList/v4/pkg/singleflight"
 	"github.com/OpenListTeam/go-cache"
+	"github.com/Xhofe/go-cache"
 )
 
 var taskCache = cache.NewMemCache(cache.WithShards[[]pikpak.OfflineTask](16))

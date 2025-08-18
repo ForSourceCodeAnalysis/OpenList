@@ -41,6 +41,7 @@ func InitConfig() {
 	}
 	configPath := filepath.Join(flags.DataDir, "config.json")
 	log.Infof("reading config file: %s", configPath)
+
 	if !utils.Exists(configPath) {
 		log.Infof("config file not exists, creating default config file")
 		_, err := utils.CreateNestedFile(configPath)

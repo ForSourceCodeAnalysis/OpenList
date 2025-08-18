@@ -306,6 +306,48 @@ func (d *BaiduNetdisk) create(path string, size int64, isdir int, uploadid, bloc
 	}
 	return d.postForm("/xpan/file", params, form, resp)
 }
+func (d *BaiduNetdisk) precreate(req *PrecreateReq) (*PrecreateResp, error) {
+	b := map[string]any{
+		"path":        req.Path,
+		"size":        req.Size,
+		"isdir":       req.Isdir,
+		"autoinit":    req.Autoinit,
+		"rtype":       req.Rtype,
+		"block_list":  req.BlockList,
+		"content-md5": req.ContentMd5,
+		"slice-md5":   req.SliceMd5,
+	}
+	res := &PrecreateResp{}
+	r, err := d.request("https://pan.baidu.com/rest/2.0/xpan/file", http.MethodPost, func(rt *resty.Request) {
+		rt.SetQueryParam("method", "precreate").
+			SetHeader("User-Agent", "pan.baidu.com").
+			SetHeader("Content-Type", "application/json").
+			SetBody(b)
+
+	}, res)
+	if err != nil {
+		log.Errorf("baidu_netdisk precreate error: %s, %v", string(r), err)
+		return nil, err
+	}
+	return res, nil
+
+}
+
+func (d *BaiduNetdisk) locateUpload(req *LocateUploadReq) (string, error) {
+	res := &LocateUploadResp{}
+	_, err := d.get("/pcs/file", map[string]string{
+		"method":         "locateupload",
+		"appid":          "250528",
+		"path":           req.Path,
+		"uploadid":       req.UploadID,
+		"upload_version": "2.0",
+	}, res)
+	if err != nil {
+		return "", err
+	}
+	return res.Servers[0].Server, nil
+
+}
 
 func joinTime(form map[string]string, ctime, mtime int64) {
 	form["local_mtime"] = strconv.FormatInt(mtime, 10)

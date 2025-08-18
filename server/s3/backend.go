@@ -22,6 +22,7 @@ import (
 	"github.com/OpenListTeam/OpenList/v4/internal/stream"
 	"github.com/OpenListTeam/OpenList/v4/pkg/http_range"
 	"github.com/OpenListTeam/OpenList/v4/pkg/utils"
+	"github.com/OpenListTeam/gofakes3"
 	"github.com/itsHenry35/gofakes3"
 	"github.com/ncw/swift/v2"
 	log "github.com/sirupsen/logrus"

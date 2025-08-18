@@ -1,7 +1,7 @@
 package driver
 
 import (
-	// open123 "github.com/OpenListTeam/OpenList/drivers/123_open"
+	// open123 "github.com/OpenListTeam/OpenList/v4/drivers/123_open"
 	"github.com/Xhofe/go-cache"
 )
 

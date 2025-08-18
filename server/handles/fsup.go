@@ -1,6 +1,7 @@
 package handles
 
 import (
+	"encoding/json"
 	"io"
 	"net/url"
 	stdpath "path"
@@ -8,8 +9,10 @@ import (
 	"time"
 
 	"github.com/OpenListTeam/OpenList/v4/internal/conf"
+	"github.com/OpenListTeam/OpenList/v4/internal/driver"
 	"github.com/OpenListTeam/OpenList/v4/internal/fs"
 	"github.com/OpenListTeam/OpenList/v4/internal/model"
+	"github.com/OpenListTeam/OpenList/v4/internal/model/reqres"
 	"github.com/OpenListTeam/OpenList/v4/internal/stream"
 	"github.com/OpenListTeam/OpenList/v4/internal/task"
 	"github.com/OpenListTeam/OpenList/v4/pkg/utils"
@@ -205,4 +208,105 @@ func FsForm(c *gin.Context) {
 	common.SuccessResp(c, gin.H{
 		"task": getTaskInfo(t),
 	})
+}
+
+// 分片上传流程如下
+// 1. 客户端调用FsUpHash获取上传所需的hash信息
+// 2. 根据获取到的hash信息，客户端调用FsPreup上传必要的参数，获取分片大小，及需上传的分片列表
+// 3. 客户端根据分片列表进行分片上传，如果分片是第一个，且需要sliceHash，那么需要把所有分片的hash带上
+// 4. 如果中途出现问题，可以重新进行分片上传流程，后端根据记录的信息进行恢复
+// 如果网盘不支持分片上传，则会进行本地中转，对客户端来说，仍然是分片上传
+
+// FsUpInfo 获取上传所需的信息
+func FsUpInfo(c *gin.Context) {
+	storage := c.MustGet("storage")
+
+	uh := &model.UploadInfo{
+		SliceHashNeed: false,
+		HashMd5Need:   true,
+	}
+	switch s := storage.(type) {
+	case driver.IUploadInfo:
+		uh = s.GetUploadInfo()
+	}
+	common.SuccessResp(c, uh)
+}
+
+// // FsSliceSize 获取分片大小
+// func FsSliceSize(c *gin.Context) {
+// 	req := &reqres.SliceSizeReq{}
+// 	err := c.ShouldBindJSON(req)
+// 	if err != nil {
+// 		common.ErrorResp(c, err, 400)
+// 		return
+// 	}
+// 	storage := c.MustGet("storage").(driver.Driver)
+// 	res,err := fs.SliceSize(c.Request.Context(), storage, req)
+
+// }
+
+// FsPreup 预上传
+func FsPreup(c *gin.Context) {
+	req := &reqres.PreupReq{}
+	err := c.ShouldBindJSON(req)
+	if err != nil {
+		common.ErrorResp(c, err, 400)
+		return
+	}
+	storage := c.MustGet("storage").(driver.Driver)
+
+	res, err := fs.Preup(c.Request.Context(), storage, req)
+	if err != nil {
+		common.ErrorResp(c, err, 500)
+		return
+	}
+	common.SuccessResp(c, res)
+}
+
+// FsUpSlice 上传分片
+func FsUpSlice(c *gin.Context) {
+	req := &reqres.UploadSliceReq{}
+	mstr := c.PostForm("metadata")
+	err := json.Unmarshal([]byte(mstr), req)
+	if err != nil {
+		common.ErrorResp(c, err, 400)
+		return
+	}
+	file, err := c.FormFile("file")
+	if err != nil {
+		common.ErrorResp(c, err, 400)
+		return
+	}
+	fd, err := file.Open()
+	if err != nil {
+		common.ErrorResp(c, err, 500)
+		return
+	}
+	defer fd.Close()
+	storage := c.MustGet("storage").(driver.Driver)
+
+	err = fs.UploadSlice(c.Request.Context(), storage, req, fd)
+	if err != nil {
+		common.ErrorResp(c, err, 500)
+		return
+	}
+	common.SuccessResp(c)
+}
+
+// FsUpSliceComplete 上传分片完成
+func FsUpSliceComplete(c *gin.Context) {
+	req := &reqres.UploadSliceCompleteReq{}
+	err := c.ShouldBindJSON(req)
+	if err != nil {
+		common.ErrorResp(c, err, 400)
+		return
+	}
+	storage := c.MustGet("storage").(driver.Driver)
+	rsp, err := fs.SliceUpComplete(c.Request.Context(), storage, req.UploadID)
+	if err != nil {
+		common.ErrorResp(c, err, 500)
+		return
+	}
+	common.SuccessResp(c, rsp)
+
 }

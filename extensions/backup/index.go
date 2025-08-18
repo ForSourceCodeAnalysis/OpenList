@@ -7,8 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/OpenListTeam/OpenList/v4/extensions/queue"
+	// "github.com/OpenListTeam/OpenList/v4/extensions/queue"
 	"github.com/OpenListTeam/OpenList/v4/pkg/generic_sync"
+	"github.com/OpenListTeam/OpenList/v4/pkg/queue"
 	"github.com/OpenListTeam/OpenList/v4/pkg/utils"
 	"github.com/fsnotify/fsnotify"
 	"github.com/go-co-op/gocron/v2"

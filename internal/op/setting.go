@@ -165,10 +165,10 @@ func SaveSettingItems(items []model.SettingItem) error {
 		}
 	}
 	err := db.SaveSettingItems(items)
-		if err != nil {
+	if err != nil {
 		return fmt.Errorf("failed save setting: %+v", err)
 	}
-		SettingCacheUpdate()
+	SettingCacheUpdate()
 	return nil
 }
 

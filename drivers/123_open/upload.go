@@ -306,15 +306,29 @@ package open123
 // 		return nil
 // 	}
 
-// 	for {
-// 		uploadAsyncResp, err := d.async(createResp.Data.PreuploadID)
-// 		if err != nil {
-// 			return err
-// 		}
-// 		if uploadAsyncResp.Data.Completed {
-// 			break
-// 		}
-// 	}
-// 	up(100)
-// 	return nil
-// }
+//		for {
+//			uploadAsyncResp, err := d.async(createResp.Data.PreuploadID)
+//			if err != nil {
+//				return err
+//			}
+//			if uploadAsyncResp.Data.Completed {
+//				break
+//			}
+//		}
+//		up(100)
+//		return nil
+//	}
+func (d *Open123) uploadCreate(uc *UploadCreateReq) (*UploadCreateResp, error) {
+	r := BaseResp{
+		Code: -1,
+		Data: &UploadCreateResp{},
+	}
+	_, err := d.Request(uploadCreateV2API, http.MethodPost, func(req *resty.Request) {
+		req.SetBody(uc)
+	}, r)
+	if err != nil {
+		logrus.Error("123 open uploadCreate error", err)
+	}
+	return r.Data.(*UploadCreateResp), err
+
+}

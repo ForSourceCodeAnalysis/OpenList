@@ -186,7 +186,7 @@ the address is defined in config file`,
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 		defer cancel()
 		var wg sync.WaitGroup
-		if conf.Conf.Scheme.HTTPPort != -1 {
+		if conf.Conf.Scheme.HttpPort != -1 {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
@@ -195,7 +195,7 @@ the address is defined in config file`,
 				}
 			}()
 		}
-		if conf.Conf.Scheme.HTTPPort != -1 {
+		if conf.Conf.Scheme.HttpsPort != -1 {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()

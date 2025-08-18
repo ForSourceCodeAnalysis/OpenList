@@ -6,6 +6,7 @@ import (
 	stdpath "path"
 
 	"github.com/OpenListTeam/OpenList/v4/internal/task"
+	"github.com/gin-gonic/gin"
 
 	"github.com/OpenListTeam/OpenList/v4/internal/archive/tool"
 	"github.com/OpenListTeam/OpenList/v4/internal/conf"

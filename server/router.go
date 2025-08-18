@@ -24,7 +24,7 @@ func Init(e *gin.Engine) {
 	}
 	Cors(e)
 	g := e.Group(conf.URL.Path)
-	if conf.Conf.Scheme.HttpPort != -1 && conf.Conf.Scheme.HttpsPort != -1 && conf.Conf.Scheme.ForceHttps {
+	if conf.Conf.Scheme.HTTPPort != -1 && conf.Conf.Scheme.HTTPSPort != -1 && conf.Conf.Scheme.ForceHTTPS {
 		e.Use(middlewares.ForceHttps)
 	}
 	g.Any("/ping", func(c *gin.Context) {
@@ -189,6 +189,12 @@ func _fs(g *gin.RouterGroup) {
 	g.PUT("/put", middlewares.FsUp, uploadLimiter, handles.FsStream)
 	g.PUT("/form", middlewares.FsUp, uploadLimiter, handles.FsForm)
 	g.POST("/link", middlewares.AuthAdmin, handles.Link)
+
+	g.GET("/upload/info", middlewares.FsUp, handles.FsUpInfo)
+	g.POST("/preup", middlewares.FsUp, handles.FsPreup)
+	g.POST("/slice_upload", middlewares.FsUp, handles.FsUpSlice)
+	g.POST("/slice_upload_complete", handles.FsUpSliceComplete)
+
 	// g.POST("/add_aria2", handles.AddOfflineDownload)
 	// g.POST("/add_qbit", handles.AddQbittorrent)
 	// g.POST("/add_transmission", handles.SetTransmission)

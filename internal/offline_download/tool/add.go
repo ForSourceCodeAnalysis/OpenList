@@ -2,6 +2,7 @@ package tool
 
 import (
 	"context"
+
 	"github.com/OpenListTeam/OpenList/v4/drivers/thunder_browser"
 
 	_115_open "github.com/OpenListTeam/OpenList/v4/drivers/115_open"
@@ -14,6 +15,7 @@ import (
 	_115 "github.com/OpenListTeam/OpenList/v4/drivers/115"
 	"github.com/OpenListTeam/OpenList/v4/drivers/pikpak"
 	"github.com/OpenListTeam/OpenList/v4/drivers/thunder"
+	"github.com/OpenListTeam/OpenList/v4/drivers/thunder_browser"
 	"github.com/OpenListTeam/OpenList/v4/drivers/thunderx"
 	"github.com/OpenListTeam/OpenList/v4/internal/conf"
 	"github.com/OpenListTeam/OpenList/v4/internal/errs"

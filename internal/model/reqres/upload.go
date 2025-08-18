@@ -1,0 +1,42 @@
+package reqres
+
+import "github.com/OpenListTeam/OpenList/v4/internal/model"
+
+// PreupReq 预上传请求
+type PreupReq struct {
+	model.IDPath
+	Name         string `json:"name"`
+	Size         uint64 `json:"size"`
+	HashMd5      string `json:"hash_md5"`
+	HashMd5256KB string `json:"hash_md5_256kb"`
+	HashSha1     string `json:"hash_sha1"`
+	Overwrite    bool   `json:"overwrite"` // 是否覆盖同名文件
+}
+
+// PreupResp 预上传响应
+type PreupResp struct {
+	UploadID          uint   `json:"upload_id"`           // 上传ID，不是网盘返回的，是本地数据的id
+	SliceSize         uint64 `json:"slice_size"`          //分片大小，单位：字节
+	SliceCnt          uint   `json:"slice_cnt"`           // 分片数量
+	SliceUploadStatus []byte `json:"slice_upload_status"` // 分片上传状态
+	Reuse             bool   `json:"reuse"`               //是否秒传
+}
+
+// UploadSliceReq 上传分片请求
+type UploadSliceReq struct {
+	UploadID  uint   `json:"upload_id"`  // 上传ID，不是网盘返回的，是本地数据的id
+	SliceHash string `json:"slice_hash"` // 分片hash，如果是第一个分片，则需包含所有分片hash，用","分割
+	SliceNum  uint   `json:"slice_num"`  // 分片序号
+}
+
+// UploadSliceCompleteReq 分片上传完成请求
+type UploadSliceCompleteReq struct {
+	UploadID uint `json:"upload_id"` // 上传ID，不是网盘返回的，是本地数据的id
+}
+
+// UploadSliceCompleteResp 分片上传完成响应
+type UploadSliceCompleteResp struct {
+	UploadID          uint   `json:"upload_id"`           // 上传ID，不是网盘返回的，是本地数据的id
+	SliceUploadStatus []byte `json:"slice_upload_status"` // 分片上传状态
+	Complete          bool   `json:"complete"`            //是否完成，如果没有完成，需要根据上面的SliceUploadStatus重新上传缺失的分片
+}

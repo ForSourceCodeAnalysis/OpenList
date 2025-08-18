@@ -3,6 +3,8 @@ package open123
 import (
 	"context"
 	"fmt"
+	"mime/multipart"
+	"slices"
 	"strconv"
 	"time"
 
@@ -10,10 +12,21 @@ import (
 	"fmt"
 	"strconv"
 
+	"strings"
+
 	"github.com/OpenListTeam/OpenList/v4/internal/driver"
 	"github.com/OpenListTeam/OpenList/v4/internal/errs"
 	"github.com/OpenListTeam/OpenList/v4/internal/model"
 	"github.com/Xhofe/go-cache"
+
+	"github.com/OpenListTeam/OpenList/v4/internal/driver"
+	"github.com/OpenListTeam/OpenList/v4/internal/errs"
+	"github.com/OpenListTeam/OpenList/v4/internal/model"
+	"github.com/OpenListTeam/OpenList/v4/internal/model/reqres"
+	"github.com/OpenListTeam/OpenList/v4/internal/model/tables"
+	"github.com/OpenListTeam/OpenList/v4/internal/op"
+	"github.com/OpenListTeam/OpenList/v4/internal/stream"
+	"github.com/OpenListTeam/OpenList/v4/pkg/utils"
 )
 
 type Open123 struct {
@@ -27,6 +40,13 @@ func (d *Open123) Config() driver.Config {
 
 func (d *Open123) GetAddition() driver.Additional {
 	return &d.Addition
+}
+
+func (d *Open123) GetUploadInfo() *model.UploadInfo {
+	return &model.UploadInfo{
+		SliceHashNeed: true,
+		HashMd5Need:   true,
+	}
 }
 
 func (d *Open123) Init(ctx context.Context) error {
@@ -138,27 +158,79 @@ func (d *Open123) Remove(ctx context.Context, obj model.Obj) error {
 	return d.trash(fileId)
 }
 
-// func (d *Open123) Put(ctx context.Context, dstDir model.Obj, file model.FileStreamer, up driver.UpdateProgress) error {
-// 	parentFileId, err := strconv.ParseInt(dstDir.GetID(), 10, 64)
-// 	etag := file.GetHash().GetHash(utils.MD5)
+// Put 单次上传
+func (d *Open123) Put(ctx context.Context, dstDir model.Obj, file model.FileStreamer, up driver.UpdateProgress) error {
+	parentFileID, err := strconv.ParseInt(dstDir.GetID(), 10, 64)
+	etag := file.GetHash().GetHash(utils.MD5)
 
-// 	if len(etag) < utils.MD5.Width {
-// 		_, etag, err = stream.CacheFullInTempFileAndHash(file, utils.MD5)
-// 		if err != nil {
-// 			return err
-// 		}
-// 	}
-// 	createResp, err := d.create(parentFileId, file.GetName(), etag, file.GetSize(), 2, false)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	if createResp.Data.Reuse {
-// 		return nil
-// 	}
-// 	up(10)
+	if len(etag) < utils.MD5.Width {
+		_, etag, err = stream.CacheFullInTempFileAndHash(file, utils.MD5)
+		if err != nil {
+			return err
+		}
+	}
+	up(10)
 
-// 	return d.Upload(ctx, file, createResp, up)
-// }
+	return d.singleUpload(&SingleUploadReq{
+		ParentFileID: parentFileID,
+		FileName:     file.GetName(),
+		Etag:         etag,
+		Size:         file.GetSize(),
+		File:         file.GetFile(),
+		Duplicate:    1,
+	})
+}
+
+// Preup 预上传
+func (d *Open123) Preup(c context.Context, req *reqres.PreupReq) (*model.PreupInfo, error) {
+	pid, err := strconv.ParseUint(req.ID, 10, 64)
+	if err != nil {
+		return nil, err
+	}
+	duplicate := 1
+	if req.Overwrite {
+		duplicate = 2
+	}
+
+	ucr := &UploadCreateReq{
+		ParentFileID: pid,
+		Etag:         req.HashMd5,
+		FileName:     req.Name,
+		Size:         int64(req.Size),
+		Duplicate:    duplicate,
+	}
+
+	resp, err := d.uploadCreate(ucr)
+	if err != nil {
+		return nil, err
+	}
+	return &model.PreupInfo{
+		PreupID:   resp.PreuploadID,
+		Server:    resp.Servers[0],
+		SliceSize: resp.SliceSize,
+		Reuse:     resp.Reuse,
+	}, nil
+}
+
+// UploadSlice 上传分片
+func (d *Open123) UploadSlice(c context.Context, req *tables.SliceUpload, sliceno uint, fd multipart.File) error {
+	sh := strings.Split(req.SliceHash, ",")
+	r := &UploadSliceReq{
+		Name:        req.Name,
+		PreuploadID: req.PreupID,
+		Server:      req.Server,
+		Slice:       fd,
+		SliceMD5:    sh[sliceno],
+		SliceNo:     int(sliceno) + 1,
+	}
+	return d.uploadSlice(r)
+}
+
+// UploadSliceComplete 分片上传完成
+func (d *Open123) UploadSliceComplete(c context.Context, su *tables.SliceUpload) error {
+
+	return d.sliceUpComplete(su.PreupID)
+}
 
 // Copy 复制文件
 func (d *Open123) Copy(ctx context.Context, req *driver.DCopyReq) error {

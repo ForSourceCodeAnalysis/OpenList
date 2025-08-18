@@ -18,6 +18,7 @@ import (
 	"github.com/OpenListTeam/OpenList/v4/internal/driver"
 	"github.com/OpenListTeam/OpenList/v4/internal/errs"
 	"github.com/OpenListTeam/OpenList/v4/internal/model"
+	"github.com/OpenListTeam/OpenList/v4/internal/model/tables"
 	"github.com/OpenListTeam/OpenList/v4/internal/sign"
 	"github.com/OpenListTeam/OpenList/v4/internal/stream"
 	"github.com/OpenListTeam/OpenList/v4/pkg/utils"
@@ -156,6 +157,7 @@ func (d *Local) FileInfoToObj(ctx context.Context, f fs.FileInfo, reqPath string
 		typeName := utils.GetFileType(f.Name())
 		if typeName == conf.IMAGE || typeName == conf.VIDEO {
 			thumb = common.GetApiUrl(ctx) + stdpath.Join("/d", reqPath, f.Name())
+
 			thumb = utils.EncodePath(thumb, true)
 			thumb += "?type=thumb&sign=" + sign.Sign(stdpath.Join(reqPath, f.Name()))
 		}
@@ -251,6 +253,11 @@ func (d *Local) Link(ctx context.Context, file model.Obj, args model.LinkArgs) (
 		if thumbPath != nil {
 			open, err := os.Open(*thumbPath)
 			if err != nil {
+				return nil, err
+			} // Get thumbnail file size for Content-Length
+			stat, err := open.Stat()
+			if err != nil {
+				open.Close()
 				return nil, err
 			}
 			// Get thumbnail file size for Content-Length
@@ -425,6 +432,15 @@ func (d *Local) Put(ctx context.Context, dstDir model.Obj, stream model.FileStre
 	}
 
 	return nil
+}
+
+// UploadSliceComplete 分片上传完成
+func (d *Local) UploadSliceComplete(ctx context.Context, su *tables.SliceUpload) error {
+	f, err := os.Stat(su.TmpFile)
+	if err != nil {
+		return err
+	}
+	return os.Rename(su.TmpFile, filepath.Join(su.DstPath, f.Name()))
 }
 
 var _ driver.Driver = (*Local)(nil)

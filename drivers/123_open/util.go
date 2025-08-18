@@ -1,6 +1,7 @@
 package open123
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -163,7 +164,7 @@ func (d *Open123) getFiles(parentFileId int64, limit int, lastFileId int64) (*Fi
 	return resp.Data.(*FileListInfo), err
 }
 
-func (d *Open123) getDownloadInfo(fileId int64) (*DownloadInfo, error) {
+func (d *Open123) getDownloadInfo(fileID int64) (*DownloadInfo, error) {
 	resp := BaseResp{
 		Code: -1,
 		Data: &DownloadInfo{},
@@ -171,7 +172,7 @@ func (d *Open123) getDownloadInfo(fileId int64) (*DownloadInfo, error) {
 
 	_, err := d.Request(baseURL+downloadInfoAPI, http.MethodGet, func(req *resty.Request) {
 		req.SetQueryParams(map[string]string{
-			"fileId": strconv.FormatInt(fileId, 10),
+			"fileId": strconv.FormatInt(fileID, 10),
 		})
 	}, &resp)
 
@@ -200,10 +201,10 @@ func (d *Open123) move(fileID, toParentFileID int64) error {
 	return err
 }
 
-func (d *Open123) rename(fileId int64, fileName string) error {
+func (d *Open123) rename(fileID int64, fileName string) error {
 	_, err := d.Request(baseURL+renameAPI, http.MethodPut, func(req *resty.Request) {
 		req.SetBody(base.Json{
-			"fileId":   fileId,
+			"fileId":   fileID,
 			"fileName": fileName,
 		})
 	}, nil)
@@ -220,15 +221,84 @@ func (d *Open123) batchRename(renamelist []string) error {
 	return err
 }
 
-func (d *Open123) trash(fileId int64) error {
+func (d *Open123) trash(fileID int64) error {
 	_, err := d.Request(baseURL+trashAPI, http.MethodPost, func(req *resty.Request) {
 		req.SetBody(base.Json{
-			"fileIDs": []int64{fileId},
+			"fileIDs": []int64{fileID},
 		})
 	}, nil)
+
+	return err
+}
+
+func (d *Open123) uploadSlice(req *UploadSliceReq) error {
+	_, err := d.Request(req.Server+uploadSliceAPI, http.MethodPost, func(rt *resty.Request) {
+		rt.SetHeader("Content-Type", "multipart/form-data")
+		rt.SetMultipartFormData(map[string]string{
+			"preuploadID": req.PreuploadID,
+			"sliceMD5":    req.SliceMD5,
+			"sliceNo":     strconv.FormatInt(int64(req.SliceNo), 10),
+		})
+		rt.SetMultipartField("slice", req.Name, "multipart/form-data", req.Slice)
+	}, nil)
+	return err
+}
+
+func (d *Open123) sliceUpComplete(uploadID string) error {
+	r := &BaseResp{
+		Code: -1,
+		Data: &SingleUploadResp{},
+	}
+	_, err := d.Request(baseURL+uploadCompleteV2API, http.MethodPost, func(req *resty.Request) {
+		req.SetBody(base.Json{
+			"preuploadID": uploadID,
+		})
+	}, r)
 	if err != nil {
 		return err
 	}
+	rd := r.Data.(*SingleUploadResp)
+	if rd.Completed {
+		return nil
+	}
+	return errors.New("upload uncomplete")
 
-	return nil
+}
+
+func (d *Open123) getUploadServer() (string, error) {
+	r := &BaseResp{
+		Code: -1,
+		Data: []string{},
+	}
+	_, err := d.Request(baseURL+uploadDomainAPI, "GET", nil, r)
+	return r.Data.([]string)[0], err
+}
+
+func (d *Open123) singleUpload(req *SingleUploadReq) error {
+	url, err := d.getUploadServer()
+	if err != nil {
+		return err
+	}
+	r := &BaseResp{
+		Code: -1,
+		Data: &SingleUploadResp{},
+	}
+	_, err = d.Request(url+uploadSingleCreateAPI, "POST", func(rt *resty.Request) {
+		rt.SetHeader("Content-Type", "multipart/form-data")
+		rt.SetMultipartFormData(map[string]string{
+			"parentFileID": strconv.FormatInt(req.ParentFileID, 10),
+			"filename":     req.FileName,
+			"size":         strconv.FormatInt(req.Size, 10),
+			"etag":         req.Etag,
+			"duplicate":    strconv.Itoa(req.Duplicate),
+		})
+	}, r)
+	if err != nil {
+		return err
+	}
+	rd := r.Data.(*SingleUploadResp)
+	if rd.Completed {
+		return nil
+	}
+	return errors.New("upload uncomplete")
 }

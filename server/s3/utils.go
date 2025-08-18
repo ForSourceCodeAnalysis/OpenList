@@ -13,7 +13,6 @@ import (
 	"github.com/OpenListTeam/OpenList/v4/internal/model"
 	"github.com/OpenListTeam/OpenList/v4/internal/op"
 	"github.com/OpenListTeam/OpenList/v4/internal/setting"
-	"github.com/OpenListTeam/gofakes3"
 	"github.com/itsHenry35/gofakes3"
 )
 

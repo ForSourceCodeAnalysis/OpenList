@@ -37,9 +37,9 @@ type Meilisearch struct {
 // Scheme 服务配置
 type Scheme struct {
 	Address      string `json:"address" env:"ADDR"`
-	HTTPPort     int    `json:"http_port" env:"HTTP_PORT"`
-	HTTPSPort    int    `json:"https_port" env:"HTTPS_PORT"`
-	ForceHTTPS   bool   `json:"force_https" env:"FORCE_HTTPS"`
+	HttpPort     int    `json:"http_port" env:"HTTP_PORT"`
+	HttpsPort    int    `json:"https_port" env:"HTTPS_PORT"`
+	ForceHttps   bool   `json:"force_https" env:"FORCE_HTTPS"`
 	CertFile     string `json:"cert_file" env:"CERT_FILE"`
 	KeyFile      string `json:"key_file" env:"KEY_FILE"`
 	UnixFile     string `json:"unix_file" env:"UNIX_FILE"`
@@ -141,7 +141,7 @@ type Config struct {
 	MmapThreshold         int         `json:"mmap_thresholdMB" env:"MMAP_THRESHOLD_MB"`
 	MaxConnections        int         `json:"max_connections" env:"MAX_CONNECTIONS"`
 	MaxConcurrency        int         `json:"max_concurrency" env:"MAX_CONCURRENCY"`
-	TLSInsecureSkipVerify bool        `json:"tls_insecure_skip_verify" env:"TLS_INSECURE_SKIP_VERIFY"`
+	TlsInsecureSkipVerify bool        `json:"tls_insecure_skip_verify" env:"TLS_INSECURE_SKIP_VERIFY"`
 	Tasks                 TasksConfig `json:"tasks" envPrefix:"TASKS_"`
 	Cors                  Cors        `json:"cors" envPrefix:"CORS_"`
 	S3                    S3          `json:"s3" envPrefix:"S3_"`
@@ -160,9 +160,9 @@ func DefaultConfig(dataDir string) *Config {
 		Scheme: Scheme{
 			Address:    "0.0.0.0",
 			UnixFile:   "",
-			HTTPPort:   5244,
-			HTTPSPort:  -1,
-			ForceHTTPS: false,
+			HttpPort:   5244,
+			HttpsPort:  -1,
+			ForceHttps: false,
 			CertFile:   "",
 			KeyFile:    "",
 		},
@@ -204,7 +204,7 @@ func DefaultConfig(dataDir string) *Config {
 		MmapThreshold:         4,
 		MaxConnections:        0,
 		MaxConcurrency:        64,
-		TLSInsecureSkipVerify: true,
+		TlsInsecureSkipVerify: true,
 		Tasks: TasksConfig{
 			Download: TaskConfig{
 				Workers:  5,

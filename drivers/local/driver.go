@@ -261,7 +261,7 @@ func (d *Local) Link(ctx context.Context, file model.Obj, args model.LinkArgs) (
 				return nil, err
 			}
 			// Get thumbnail file size for Content-Length
-			stat, err := open.Stat()
+			stat, err = open.Stat()
 			if err != nil {
 				open.Close()
 				return nil, err

@@ -35,6 +35,7 @@ const (
 	PreviewArchivesByDefault = "preview_archives_by_default"
 	ReadMeAutoRender         = "readme_autorender"
 	FilterReadMeScripts      = "filter_readme_scripts"
+
 	// global
 	HideFiles               = "hide_files"
 	CustomizeHead           = "customize_head"
@@ -47,6 +48,10 @@ const (
 	ForwardDirectLinkParams = "forward_direct_link_params"
 	IgnoreDirectLinkParams  = "ignore_direct_link_params"
 	WebauthnLoginEnabled    = "webauthn_login_enabled"
+	SharePreview            = "share_preview"
+	ShareArchivePreview     = "share_archive_preview"
+	ShareForceProxy         = "share_force_proxy"
+	ShareSummaryContent     = "share_summary_content"
 
 	// index
 	SearchIndex     = "search_index"
@@ -170,4 +175,5 @@ const (
 	UserAgentKey
 	PathKey
 	StorageKey
+	SharingIDKey
 )

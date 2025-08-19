@@ -231,6 +231,21 @@ func (d *Open123) getDownloadInfo(fileID int64) (*DownloadInfo, error) {
 	return &resp.Data, err
 }
 
+func (d *Open123) getDirectLink(fileId int64) (*DirectLinkResp, error) {
+	var resp DirectLinkResp
+
+	_, err := d.Request(DirectLink, http.MethodGet, func(req *resty.Request) {
+		req.SetQueryParams(map[string]string{
+			"fileId": strconv.FormatInt(fileId, 10),
+		})
+	}, &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return &resp, nil
+}
+
 func (d *Open123) mkdir(parentID int64, name string) error {
 	_, err := d.Request(baseURL+mkdirAPI, http.MethodPost, func(req *resty.Request) {
 		req.SetBody(base.Json{

@@ -12,12 +12,6 @@ import (
 	"strings"
 	"sync"
 
-	"strings"
-	"sync"
-
-	log "github.com/sirupsen/logrus"
-	"gorm.io/gorm"
-
 	"github.com/OpenListTeam/OpenList/v4/internal/conf"
 	"github.com/OpenListTeam/OpenList/v4/internal/db"
 	"github.com/OpenListTeam/OpenList/v4/internal/driver"

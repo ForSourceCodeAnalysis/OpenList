@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/OpenListTeam/OpenList/v4/internal/conf"
+	"github.com/OpenListTeam/OpenList/v4/internal/driver"
 	"github.com/OpenListTeam/OpenList/v4/internal/errs"
 	"github.com/OpenListTeam/OpenList/v4/internal/fs"
 	"github.com/OpenListTeam/OpenList/v4/internal/model"
@@ -235,7 +236,6 @@ func checkRelativePath(path string) error {
 }
 
 type RemoveReq struct {
-	Dir   string         `json:"dir"`
 	Names []model.IDName `json:"names"`
 }
 
@@ -249,43 +249,11 @@ func FsRemove(c *gin.Context) {
 		common.ErrorStrResp(c, "Empty file names", 400)
 		return
 	}
-	user := c.Request.Context().Value(conf.UserKey).(*model.User)
-	if !user.CanRemove() {
-		common.ErrorResp(c, errs.PermissionDenied, 403)
-		return
-	}
-	reqDir, err := user.JoinPath(req.Dir)
-	if err != nil {
-		common.ErrorResp(c, err, 403)
-		return
-	}
 
-	err = fs.BatchRemove(c.Request.Context(), reqDir, req.Names)
+	storage := c.Request.Context().Value(conf.StorageKey).(driver.Driver)
+	actualPath := c.Request.Context().Value(conf.PathKey).(string)
 
-	// storage, actualpath, err := op.GetStorageAndActualPath(reqDir)
-	// if err != nil {
-	// 	common.ErrorResp(c, err, 500)
-	// 	return
-	// }
-	// switch s := storage.(type) {
-	// case driver.BatchRemove:
-	// 	fs.BatchRemove(c.Request.Context(), storage, actualpath, req.Names)
-	// 	rawobj, err := op.Get(c.Request.Context(), storage, actualpath)
-	// 	if err != nil {
-	// 		common.ErrorResp(c, err, 500)
-	// 		return
-	// 	}
-	// 	err = s.BatchRemove(c.Request.Context(), model.UnwrapObj(rawobj), req.Names)
-	// 	if err == nil {
-	// 		delCacheObj(storage, reqDir, rawobj)
-	// 		// clear folder cache recursively
-	// 		if rawobj.IsDir() {
-	// 			ClearCache(storage, reqDir)
-	// 		}
-	// 	}
-	// }
-	// // // return op.Remove(ctx, storage, actualPath, objs)
-	// err = fs.Remove(c.Request.Context(), reqDir, req.Names)
+	err := fs.BatchRemove(c.Request.Context(), storage, actualPath, req.Names)
 
 	if err != nil {
 		common.ErrorResp(c, err, 500)

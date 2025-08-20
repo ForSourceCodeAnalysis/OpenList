@@ -232,8 +232,7 @@ func (om *ObjMerge) Reset() {
 	om.set.Clear()
 }
 
-// IDName 有的网盘使用的是文件ID，有的网盘使用的是文件路径
-// // 按需设置，按需使用
+// IDName 文件ID，文件名称，有的网盘使用文件id管理文件，有的使用路径名称
 type IDName struct {
 	ID   string `json:"id" form:"id"`
 	Name string `json:"name" form:"name"`

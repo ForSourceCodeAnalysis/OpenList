@@ -118,8 +118,14 @@ func (d *Open123) BatchRename(ctx context.Context, obj model.Obj, renameObjs []m
 		rl = append(rl, fmt.Sprintf("%d|%s", fileID, ro.NewName))
 
 	}
+	// 每次最多30
+	for names := range slices.Chunk(rl, 30) {
+		if err := d.batchRename(names); err != nil {
+			return err
+		}
+	}
 
-	return d.batchRename(rl)
+	return nil
 }
 
 func (d *Open123) Copy(ctx context.Context, srcObj, dstDir model.Obj) error {

@@ -9,7 +9,6 @@ import (
 	"mime/multipart"
 	"net/url"
 	"os"
-	"path"
 	stdpath "path"
 	"path/filepath"
 	"strconv"
@@ -151,7 +150,7 @@ func (d *BaiduNetdisk) BatchRename(ctx context.Context, obj model.Obj, renameObj
 	data := []base.Json{}
 	for _, ro := range renameObjs {
 		data = append(data, base.Json{
-			"path":    path.Join(obj.GetPath(), ro.SrcName),
+			"path":    filepath.Join(obj.GetPath(), ro.SrcName),
 			"newname": ro.NewName,
 		})
 	}
@@ -187,6 +186,7 @@ func (d *BaiduNetdisk) BatchRemove(ctx context.Context, srcObj model.Obj, objs [
 	_, err := d.manage("delete", data)
 	return err
 }
+
 func (d *BaiduNetdisk) PutRapid(ctx context.Context, dstDir model.Obj, stream model.FileStreamer) (model.Obj, error) {
 	contentMd5 := stream.GetHash().GetHash(utils.MD5)
 	if len(contentMd5) < utils.MD5.Width {

@@ -7,7 +7,6 @@ import (
 	"io"
 	"mime/multipart"
 	"os"
-
 	stdpath "path"
 	"path/filepath"
 	"strings"
@@ -141,12 +140,19 @@ func Remove(ctx context.Context, path string) error {
 	}
 	return err
 }
-func BatchRemove(ctx context.Context, path string, objs []model.IDName) error {
-	err := batchRemove(ctx, path, objs)
-	if err != nil {
-		log.Errorf("failed remove %s: %+v", path, err)
+func BatchRemove(ctx context.Context, storage driver.Driver, actualPath string, objs []model.IDName) error {
+	switch storage.(type) {
+	case driver.BatchRemove:
+		return op.BatchRemove(ctx, storage, actualPath, objs)
+	default:
+		for _, obj := range objs {
+			err := op.Remove(ctx, storage, filepath.Join(actualPath, obj.Name))
+			if err != nil {
+				return err
+			}
+		}
 	}
-	return err
+	return nil
 }
 
 func PutDirectly(ctx context.Context, dstDirPath string, file model.FileStreamer, lazyCache ...bool) error {

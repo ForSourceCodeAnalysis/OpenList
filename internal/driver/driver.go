@@ -81,6 +81,10 @@ type BatchRename interface {
 	BatchRename(ctx context.Context, obj model.Obj, renameObjs []model.RenameObj) error
 }
 
+type BatchRename interface {
+	BatchRename(ctx context.Context, obj model.Obj, renameObjs []model.RenameObj) error
+}
+
 type Copy interface {
 	Copy(ctx context.Context, srcObj, dstDir model.Obj) error
 }
@@ -111,6 +115,10 @@ type ISliceUpload interface {
 // IUploadSliceComplete 分片上传完成接口
 type IUploadSliceComplete interface {
 	UploadSliceComplete(ctx context.Context, req *tables.SliceUpload) error
+}
+
+type BatchRemove interface {
+	BatchRemove(ctx context.Context, srcobj model.Obj, objs []model.IDName) error
 }
 
 type Put interface {

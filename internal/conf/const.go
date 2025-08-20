@@ -169,4 +169,5 @@ const (
 	RequestHeaderKey
 	UserAgentKey
 	PathKey
+	StorageKey
 )

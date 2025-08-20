@@ -1,10 +1,7 @@
 package reqres
 
-import "github.com/OpenListTeam/OpenList/v4/internal/model"
-
 // PreupReq 预上传请求
 type PreupReq struct {
-	model.IDPath
 	Name         string `json:"name"`
 	Size         uint64 `json:"size"`
 	HashMd5      string `json:"hash_md5"`

@@ -6,7 +6,6 @@ import (
 
 	"github.com/OpenListTeam/OpenList/v4/internal/conf"
 	"github.com/OpenListTeam/OpenList/v4/internal/errs"
-	"github.com/OpenListTeam/OpenList/v4/internal/fs"
 	"github.com/OpenListTeam/OpenList/v4/internal/model"
 	"github.com/OpenListTeam/OpenList/v4/internal/op"
 	"github.com/OpenListTeam/OpenList/v4/server/common"
@@ -42,18 +41,20 @@ func FsUp(c *gin.Context) {
 		c.Abort()
 		return
 	}
-	storage, err := fs.GetStorage(path, &fs.GetStoragesArgs{})
+	storage, actualPath, err := op.GetStorageAndActualPath(path)
 	if err != nil {
 		common.ErrorResp(c, err, 400)
 		c.Abort()
 		return
 	}
 	if storage.Config().NoUpload {
-		common.ErrorStrResp(c, "Current storage doesn't support upload", 405)
+		common.ErrorStrResp(c, "Current storage doesn't support upload", 403)
 		c.Abort()
 		return
 	}
-	c.Set("storage", storage)
+
+	common.GinWithValue(c, conf.StorageKey, storage)
+	common.GinWithValue(c, conf.PathKey, actualPath)
 
 	c.Next()
 }

@@ -31,9 +31,10 @@ type Addition struct {
 }
 
 var config = driver.Config{
-	Name:        "123 Open",
-	DefaultRoot: "0",
-	LocalSort:   true,
+	Name:            "123 Open",
+	DefaultRoot:     "0",
+	LocalSort:       true,
+	ManageFileUseID: true,
 }
 
 func init() {

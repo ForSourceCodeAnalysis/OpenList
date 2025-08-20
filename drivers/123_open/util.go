@@ -221,10 +221,10 @@ func (d *Open123) batchRename(renamelist []string) error {
 	return err
 }
 
-func (d *Open123) trash(fileID int64) error {
+func (d *Open123) trash(fileIDs []int64) error {
 	_, err := d.Request(baseURL+trashAPI, http.MethodPost, func(req *resty.Request) {
 		req.SetBody(base.Json{
-			"fileIDs": []int64{fileID},
+			"fileIDs": fileIDs,
 		})
 	}, nil)
 
@@ -270,14 +270,28 @@ func (d *Open123) getUploadServer() (string, error) {
 		Code: -1,
 		Data: []string{},
 	}
-	_, err := d.Request(baseURL+uploadDomainAPI, "GET", nil, r)
-	return r.Data.([]string)[0], err
+	body, err := d.Request(baseURL+uploadDomainAPI, "GET", nil, r)
+	if err != nil {
+		log.Error("get upload server failed", string(body), r, err)
+		return "", err
+	}
+	ri, ok := r.Data.([]any)
+	if !ok || len(ri) == 0 {
+		return "", errors.New("get upload server error")
+	}
+
+	return ri[0].(string), err
 }
 
 func (d *Open123) singleUpload(req *SingleUploadReq) error {
 	url, err := d.getUploadServer()
 	if err != nil {
+		log.Error("get upload server failed", err)
 		return err
+	}
+	if req.File == nil {
+		log.Error("file is nil")
+		return errors.New("file is nil")
 	}
 	r := &BaseResp{
 		Code: -1,
@@ -292,13 +306,31 @@ func (d *Open123) singleUpload(req *SingleUploadReq) error {
 			"etag":         req.Etag,
 			"duplicate":    strconv.Itoa(req.Duplicate),
 		})
+		rt.SetMultipartField("file", req.FileName, "application/octet-stream", req.File)
 	}, r)
 	if err != nil {
+		log.Error("123 open single upload error", err)
 		return err
 	}
+	log.Info("123 open single upload success")
 	rd := r.Data.(*SingleUploadResp)
 	if rd.Completed {
 		return nil
 	}
 	return errors.New("upload uncomplete")
+}
+
+func (d *Open123) uploadCreate(uc *UploadCreateReq) (*UploadCreateResp, error) {
+	r := BaseResp{
+		Code: -1,
+		Data: &UploadCreateResp{},
+	}
+	_, err := d.Request(uploadCreateV2API, http.MethodPost, func(req *resty.Request) {
+		req.SetBody(uc)
+	}, r)
+	if err != nil {
+		log.Error("123 open uploadCreate error", err)
+	}
+	return r.Data.(*UploadCreateResp), err
+
 }

@@ -11,6 +11,7 @@ import (
 	"os"
 	"path"
 	stdpath "path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -177,6 +178,15 @@ func (d *BaiduNetdisk) Remove(ctx context.Context, obj model.Obj) error {
 	return err
 }
 
+func (d *BaiduNetdisk) BatchRemove(ctx context.Context, srcObj model.Obj, objs []model.IDName) error {
+	data := []string{}
+	for _, obj := range objs {
+		data = append(data, filepath.Join(srcObj.GetPath(), obj.Name))
+	}
+
+	_, err := d.manage("delete", data)
+	return err
+}
 func (d *BaiduNetdisk) PutRapid(ctx context.Context, dstDir model.Obj, stream model.FileStreamer) (model.Obj, error) {
 	contentMd5 := stream.GetHash().GetHash(utils.MD5)
 	if len(contentMd5) < utils.MD5.Width {
@@ -426,7 +436,7 @@ func (d *BaiduNetdisk) UploadSlice(c context.Context, req *tables.SliceUpload, s
 }
 
 // Preup 预上传(自定以接口，为了适配自定义的分片上传)
-func (d *BaiduNetdisk) Preup(ctx context.Context, req *reqres.PreupReq) (*model.PreupInfo, error) {
+func (d *BaiduNetdisk) Preup(ctx context.Context, srcobj model.Obj, req *reqres.PreupReq) (*model.PreupInfo, error) {
 	return &model.PreupInfo{
 		SliceSize: uint64(d.getSliceSize(int64(req.Size))),
 	}, nil

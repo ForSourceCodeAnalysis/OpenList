@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	"github.com/OpenListTeam/OpenList/v4/internal/conf"
+	"github.com/OpenListTeam/OpenList/v4/internal/driver"
 	"github.com/OpenListTeam/OpenList/v4/internal/errs"
 	"github.com/OpenListTeam/OpenList/v4/internal/fs"
 	"github.com/OpenListTeam/OpenList/v4/internal/model"
@@ -136,7 +137,6 @@ func FsRecursiveMove(c *gin.Context) {
 }
 
 type BatchRenameReq struct {
-	SrcDir        string            `json:"src_dir"`
 	RenameObjects []model.RenameObj `json:"rename_objects"`
 }
 
@@ -146,28 +146,10 @@ func FsBatchRename(c *gin.Context) {
 		common.ErrorResp(c, err, 400)
 		return
 	}
-	user := c.Request.Context().Value(conf.UserKey).(*model.User)
-	if !user.CanRename() {
-		common.ErrorResp(c, errs.PermissionDenied, 403)
-		return
-	}
+	storage := c.Request.Context().Value(conf.StorageKey).(driver.Driver)
+	path := c.Request.Context().Value(conf.PathKey).(string)
 
-	reqPath, err := user.JoinPath(req.SrcDir)
-	if err != nil {
-		common.ErrorResp(c, err, 403)
-		return
-	}
-
-	meta, err := op.GetNearestMeta(reqPath)
-	if err != nil {
-		if !errors.Is(errors.Cause(err), errs.MetaNotFound) {
-			common.ErrorResp(c, err, 500, true)
-			return
-		}
-	}
-	c.Set("meta", meta)
-
-	err = fs.BatchRename(c, req.SrcDir, req.RenameObjects)
+	err := fs.BatchRename(c.Request.Context(), storage, path, req.RenameObjects)
 	if err != nil {
 		common.ErrorResp(c, err, 500)
 		return

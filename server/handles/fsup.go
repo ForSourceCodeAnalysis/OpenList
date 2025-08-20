@@ -216,7 +216,7 @@ func FsForm(c *gin.Context) {
 
 // FsUpInfo 获取上传所需的信息
 func FsUpInfo(c *gin.Context) {
-	storage := c.MustGet("storage")
+	storage := c.Request.Context().Value(conf.StorageKey)
 
 	uh := &model.UploadInfo{
 		SliceHashNeed: false,
@@ -229,19 +229,6 @@ func FsUpInfo(c *gin.Context) {
 	common.SuccessResp(c, uh)
 }
 
-// // FsSliceSize 获取分片大小
-// func FsSliceSize(c *gin.Context) {
-// 	req := &reqres.SliceSizeReq{}
-// 	err := c.ShouldBindJSON(req)
-// 	if err != nil {
-// 		common.ErrorResp(c, err, 400)
-// 		return
-// 	}
-// 	storage := c.MustGet("storage").(driver.Driver)
-// 	res,err := fs.SliceSize(c.Request.Context(), storage, req)
-
-// }
-
 // FsPreup 预上传
 func FsPreup(c *gin.Context) {
 	req := &reqres.PreupReq{}
@@ -250,9 +237,10 @@ func FsPreup(c *gin.Context) {
 		common.ErrorResp(c, err, 400)
 		return
 	}
-	storage := c.MustGet("storage").(driver.Driver)
+	storage := c.Request.Context().Value(conf.StorageKey).(driver.Driver)
+	path := c.Request.Context().Value(conf.PathKey).(string)
 
-	res, err := fs.Preup(c.Request.Context(), storage, req)
+	res, err := fs.Preup(c.Request.Context(), storage, path, req)
 	if err != nil {
 		common.ErrorResp(c, err, 500)
 		return
@@ -280,7 +268,8 @@ func FsUpSlice(c *gin.Context) {
 		return
 	}
 	defer fd.Close()
-	storage := c.MustGet("storage").(driver.Driver)
+
+	storage := c.Request.Context().Value("storage").(driver.Driver)
 
 	err = fs.UploadSlice(c.Request.Context(), storage, req, fd)
 	if err != nil {

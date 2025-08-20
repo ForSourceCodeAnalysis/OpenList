@@ -154,7 +154,6 @@ func initURL() {
 	conf.URL = u
 }
 
-// CleanTempDir clear temp dir
 func CleanTempDir() {
 	files, err := os.ReadDir(conf.Conf.TempDir)
 	if err != nil {

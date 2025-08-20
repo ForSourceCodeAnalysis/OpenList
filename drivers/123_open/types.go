@@ -1,6 +1,7 @@
 package open123
 
 import (
+	"io"
 	"mime/multipart"
 	"strconv"
 	"time"
@@ -41,7 +42,9 @@ func (f File) GetName() string {
 }
 
 func (f File) CreateTime() time.Time {
-	parsedTime, err := time.Parse("2006-01-02 15:04:05", f.CreateAt)
+	// 返回的时间没有时区信息，默认 UTC+8
+	loc := time.FixedZone("UTC+8", 8*60*60)
+	parsedTime, err := time.ParseInLocation("2006-01-02 15:04:05", f.CreateAt, loc)
 	if err != nil {
 		return time.Now()
 	}
@@ -49,7 +52,9 @@ func (f File) CreateTime() time.Time {
 }
 
 func (f File) ModTime() time.Time {
-	parsedTime, err := time.Parse("2006-01-02 15:04:05", f.UpdateAt)
+	// 返回的时间没有时区信息，默认 UTC+8
+	loc := time.FixedZone("UTC+8", 8*60*60)
+	parsedTime, err := time.ParseInLocation("2006-01-02 15:04:05", f.UpdateAt, loc)
 	if err != nil {
 		return time.Now()
 	}
@@ -391,13 +396,13 @@ type UploadSliceReq struct {
 // duplicate	number	非必填	当有相同文件名时，文件处理策略（1保留两者，新文件名将自动添加后缀，2覆盖原文件）
 // containDir	bool	非必填	上传文件是否包含路径，默认false
 type SingleUploadReq struct {
-	ParentFileID int64          `json:"parentFileID"`
-	FileName     string         `json:"filename"`
-	Etag         string         `json:"etag"`
-	Size         int64          `json:"size"`
-	File         multipart.File `json:"file"`
-	Duplicate    int            `json:"duplicate"`
-	ContainDir   bool           `json:"containDir"`
+	ParentFileID int64     `json:"parentFileID"`
+	FileName     string    `json:"filename"`
+	Etag         string    `json:"etag"`
+	Size         int64     `json:"size"`
+	File         io.Reader `json:"file"`
+	Duplicate    int       `json:"duplicate"`
+	ContainDir   bool      `json:"containDir"`
 }
 
 // SingleUploadResp 单文件上传响应

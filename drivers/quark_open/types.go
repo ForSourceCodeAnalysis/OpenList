@@ -4,8 +4,6 @@ import (
 	"time"
 
 	"github.com/OpenListTeam/OpenList/v4/internal/model"
-
-	"github.com/OpenListTeam/OpenList/v4/internal/model"
 )
 
 type Resp struct {

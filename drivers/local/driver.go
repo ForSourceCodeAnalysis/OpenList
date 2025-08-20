@@ -158,7 +158,6 @@ func (d *Local) FileInfoToObj(ctx context.Context, f fs.FileInfo, reqPath string
 		typeName := utils.GetFileType(f.Name())
 		if typeName == conf.IMAGE || typeName == conf.VIDEO {
 			thumb = common.GetApiUrl(ctx) + stdpath.Join("/d", reqPath, f.Name())
-
 			thumb = utils.EncodePath(thumb, true)
 			thumb += "?type=thumb&sign=" + sign.Sign(stdpath.Join(reqPath, f.Name()))
 		}
@@ -255,14 +254,9 @@ func (d *Local) Link(ctx context.Context, file model.Obj, args model.LinkArgs) (
 			open, err := os.Open(*thumbPath)
 			if err != nil {
 				return nil, err
-			} // Get thumbnail file size for Content-Length
-			stat, err := open.Stat()
-			if err != nil {
-				open.Close()
-				return nil, err
 			}
 			// Get thumbnail file size for Content-Length
-			stat, err = open.Stat()
+			stat, err := open.Stat()
 			if err != nil {
 				open.Close()
 				return nil, err

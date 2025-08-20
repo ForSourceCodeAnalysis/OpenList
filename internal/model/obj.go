@@ -248,11 +248,11 @@ func (om *ObjMerge) Reset() {
 	om.set.Clear()
 }
 
-// IDPath 有的网盘使用的是文件ID，有的网盘使用的是文件路径
-// 按需设置，按需使用
-type IDPath struct {
+// IDName 有的网盘使用的是文件ID，有的网盘使用的是文件路径
+// // 按需设置，按需使用
+type IDName struct {
 	ID   string `json:"id" form:"id"`
-	Path string `json:"path" form:"path"`
+	Name string `json:"name" form:"name"`
 }
 
 type RenameObj struct {

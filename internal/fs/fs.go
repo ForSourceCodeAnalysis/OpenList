@@ -7,7 +7,8 @@ import (
 	"io"
 	"mime/multipart"
 	"os"
-	"path"
+
+	stdpath "path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -106,16 +107,44 @@ func Rename(ctx context.Context, srcPath, dstName string, lazyCache ...bool) err
 	return err
 }
 
-func BatchRename(ctx context.Context, srcPath string, renameObjs []model.RenameObj, lazyCache ...bool) error {
-	err := batchRename(ctx, srcPath, renameObjs)
+func BatchRename(ctx context.Context, storage driver.Driver, srcPath string, renameObjs []model.RenameObj, lazyCache ...bool) error {
+
+	srcRawObj, err := op.Get(ctx, storage, srcPath)
 	if err != nil {
-		log.Errorf("failed batch rename %s: %+v", srcPath, err)
+		return errors.WithMessage(err, "failed to get src object")
 	}
-	return err
+	srcObj := model.UnwrapObj(srcRawObj)
+	srcDirPath := stdpath.Dir(srcPath)
+
+	switch s := storage.(type) {
+	case driver.BatchRename:
+		err := s.BatchRename(ctx, srcObj, renameObjs)
+		if err == nil {
+			op.ClearCache(storage, srcDirPath)
+			return nil
+		}
+		return err
+	default:
+		for _, renameObject := range renameObjs {
+			err := op.Rename(ctx, storage, filepath.Join(srcPath, renameObject.SrcName), renameObject.NewName, lazyCache...)
+			if err != nil {
+				log.Errorf("failed rename %s to %s: %+v", renameObject.ID, renameObject.NewName, err)
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func Remove(ctx context.Context, path string) error {
 	err := remove(ctx, path)
+	if err != nil {
+		log.Errorf("failed remove %s: %+v", path, err)
+	}
+	return err
+}
+func BatchRemove(ctx context.Context, path string, objs []model.IDName) error {
+	err := batchRemove(ctx, path, objs)
 	if err != nil {
 		log.Errorf("failed remove %s: %+v", path, err)
 	}
@@ -216,9 +245,9 @@ func PutURL(ctx context.Context, path, dstName, urlStr string) error {
 /// 分片上传功能--------------------------------------------------------------------
 
 // Preup 预上传
-func Preup(c context.Context, s driver.Driver, req *reqres.PreupReq) (*reqres.PreupResp, error) {
+func Preup(c context.Context, s driver.Driver, ppath string, req *reqres.PreupReq) (*reqres.PreupResp, error) {
 	wh := map[string]any{}
-	wh["dst_path"] = req.Path
+	wh["dst_path"] = ppath
 	wh["name"] = req.Name
 	wh["size"] = req.Size
 	if req.HashMd5 != "" {
@@ -245,10 +274,20 @@ func Preup(c context.Context, s driver.Driver, req *reqres.PreupReq) (*reqres.Pr
 			SliceUploadStatus: su.SliceUploadStatus,
 		}, nil
 	}
+	//使用id管理文件
+	var srcobj model.Obj
+	if s.Config().ManageFileUseID {
+		obj, err := op.Get(c, s, ppath)
+		if err != nil {
+			log.Error(err)
+			return nil, errors.WithStack(err)
+		}
+		srcobj = obj
+	}
 	//不存在
 	createsu := &tables.SliceUpload{
-		DstPath:      req.Path,
-		DstID:        req.ID,
+		DstPath:      ppath,
+		DstID:        srcobj.GetID(),
 		Size:         req.Size,
 		Name:         req.Name,
 		HashMd5:      req.HashMd5,
@@ -258,7 +297,7 @@ func Preup(c context.Context, s driver.Driver, req *reqres.PreupReq) (*reqres.Pr
 	}
 	switch st := s.(type) {
 	case driver.IPreup:
-		res, err := st.Preup(c, req)
+		res, err := st.Preup(c, srcobj, req)
 		if err != nil {
 			log.Error("Preup error", req, err)
 			return nil, errors.WithStack(err)
@@ -386,7 +425,7 @@ func UploadSlice(ctx context.Context, storage driver.Driver, req *reqres.UploadS
 			msu.tmpFile = tf
 		}
 		if msu.tmpFile == nil {
-			msu.tmpFile, err = os.OpenFile(path.Join(conf.Conf.TempDir, msu.TmpFile), os.O_RDWR, 0644)
+			msu.tmpFile, err = os.OpenFile(filepath.Join(conf.Conf.TempDir, msu.TmpFile), os.O_RDWR, 0644)
 			if err != nil {
 				log.Error("OpenFile error", req, msu.TmpFile, err)
 				return err

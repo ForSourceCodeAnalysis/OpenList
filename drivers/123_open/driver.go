@@ -6,18 +6,7 @@ import (
 	"mime/multipart"
 	"slices"
 	"strconv"
-	"time"
-
-	"errors"
-	"fmt"
-	"strconv"
-
 	"strings"
-
-	"github.com/OpenListTeam/OpenList/v4/internal/driver"
-	"github.com/OpenListTeam/OpenList/v4/internal/errs"
-	"github.com/OpenListTeam/OpenList/v4/internal/model"
-	"github.com/Xhofe/go-cache"
 
 	"github.com/OpenListTeam/OpenList/v4/internal/driver"
 	"github.com/OpenListTeam/OpenList/v4/internal/errs"
@@ -27,6 +16,7 @@ import (
 	"github.com/OpenListTeam/OpenList/v4/internal/op"
 	"github.com/OpenListTeam/OpenList/v4/internal/stream"
 	"github.com/OpenListTeam/OpenList/v4/pkg/utils"
+	"github.com/sirupsen/logrus"
 )
 
 type Open123 struct {
@@ -141,31 +131,62 @@ func (d *Open123) Copy(ctx context.Context, srcObj, dstDir model.Obj) error {
 		return fmt.Errorf("parse parentFileID error: %v", err)
 	}
 	etag := srcObj.(File).Etag
-	createResp, err := d.create(parentFileId, srcObj.GetName(), etag, srcObj.GetSize(), 2, false)
+	createResp, err := d.uploadCreate(&UploadCreateReq{
+		ParentFileID: uint64(parentFileId),
+		FileName:     srcObj.GetName(),
+		Etag:         etag,
+		Size:         srcObj.GetSize(),
+		Duplicate:    2,
+		ContainDir:   false,
+	})
+
 	if err != nil {
 		return err
 	}
 	// 是否秒传
-	if createResp.Data.Reuse {
+	if createResp.Reuse {
 		return nil
 	}
 	return errs.NotSupport
 }
 
+// Remove 删除文件
 func (d *Open123) Remove(ctx context.Context, obj model.Obj) error {
 	fileId, _ := strconv.ParseInt(obj.GetID(), 10, 64)
 
-	return d.trash(fileId)
+	return d.trash([]int64{fileId})
+}
+
+// BatchRemove 批量删除
+func (d *Open123) BatchRemove(ctx context.Context, srcObj model.Obj, objs []model.IDName) error {
+
+	ids := []int64{}
+	for _, obj := range objs {
+		id, err := strconv.ParseInt(obj.ID, 10, 64)
+		if err != nil {
+			return err
+		}
+		ids = append(ids, id)
+	}
+	//每次最多100
+	for cids := range slices.Chunk(ids, 100) {
+		if err := d.trash(cids); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Put 单次上传
 func (d *Open123) Put(ctx context.Context, dstDir model.Obj, file model.FileStreamer, up driver.UpdateProgress) error {
 	parentFileID, err := strconv.ParseInt(dstDir.GetID(), 10, 64)
 	etag := file.GetHash().GetHash(utils.MD5)
+	logrus.Infof("file %+v", file)
 
 	if len(etag) < utils.MD5.Width {
-		_, etag, err = stream.CacheFullInTempFileAndHash(file, utils.MD5)
+		_, etag, err = stream.CacheFullAndHash(file, &up, utils.MD5)
 		if err != nil {
+			logrus.Errorf("cache full and hash error: %v", err)
 			return err
 		}
 	}
@@ -176,14 +197,14 @@ func (d *Open123) Put(ctx context.Context, dstDir model.Obj, file model.FileStre
 		FileName:     file.GetName(),
 		Etag:         etag,
 		Size:         file.GetSize(),
-		File:         file.GetFile(),
+		File:         file,
 		Duplicate:    1,
 	})
 }
 
 // Preup 预上传
-func (d *Open123) Preup(c context.Context, req *reqres.PreupReq) (*model.PreupInfo, error) {
-	pid, err := strconv.ParseUint(req.ID, 10, 64)
+func (d *Open123) Preup(c context.Context, srcobj model.Obj, req *reqres.PreupReq) (*model.PreupInfo, error) {
+	pid, err := strconv.ParseUint(srcobj.GetID(), 10, 64)
 	if err != nil {
 		return nil, err
 	}
@@ -230,30 +251,6 @@ func (d *Open123) UploadSlice(c context.Context, req *tables.SliceUpload, slicen
 func (d *Open123) UploadSliceComplete(c context.Context, su *tables.SliceUpload) error {
 
 	return d.sliceUpComplete(su.PreupID)
-}
-
-// Copy 复制文件
-func (d *Open123) Copy(ctx context.Context, req *driver.DCopyReq) error {
-	return errs.NotSupport
-}
-
-// Remove 删除文件
-func (d *Open123) Remove(ctx context.Context, req *driver.DRemoveReq) error {
-	ids := make([]int64, 0, len(req.Objs))
-	for i, obj := range req.Objs {
-		id, err := strconv.ParseInt(obj.ID, 10, 64)
-		if err != nil {
-			return nil, err
-		}
-		ids[i] = id
-	}
-	//每次最多100
-	for cids := range slices.Chunk(ids, 100) {
-		if err := d.trash(cids); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (d *Open123) GetDetails(ctx context.Context) (*model.StorageDetails, error) {

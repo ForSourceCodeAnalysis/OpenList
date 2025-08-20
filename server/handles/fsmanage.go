@@ -235,8 +235,8 @@ func checkRelativePath(path string) error {
 }
 
 type RemoveReq struct {
-	Dir   string   `json:"dir"`
-	Names []string `json:"names"`
+	Dir   string         `json:"dir"`
+	Names []model.IDName `json:"names"`
 }
 
 func FsRemove(c *gin.Context) {
@@ -259,13 +259,39 @@ func FsRemove(c *gin.Context) {
 		common.ErrorResp(c, err, 403)
 		return
 	}
-	for _, name := range req.Names {
-		err := fs.Remove(c.Request.Context(), stdpath.Join(reqDir, name))
-		if err != nil {
-			common.ErrorResp(c, err, 500)
-			return
-		}
+
+	err = fs.BatchRemove(c.Request.Context(), reqDir, req.Names)
+
+	// storage, actualpath, err := op.GetStorageAndActualPath(reqDir)
+	// if err != nil {
+	// 	common.ErrorResp(c, err, 500)
+	// 	return
+	// }
+	// switch s := storage.(type) {
+	// case driver.BatchRemove:
+	// 	fs.BatchRemove(c.Request.Context(), storage, actualpath, req.Names)
+	// 	rawobj, err := op.Get(c.Request.Context(), storage, actualpath)
+	// 	if err != nil {
+	// 		common.ErrorResp(c, err, 500)
+	// 		return
+	// 	}
+	// 	err = s.BatchRemove(c.Request.Context(), model.UnwrapObj(rawobj), req.Names)
+	// 	if err == nil {
+	// 		delCacheObj(storage, reqDir, rawobj)
+	// 		// clear folder cache recursively
+	// 		if rawobj.IsDir() {
+	// 			ClearCache(storage, reqDir)
+	// 		}
+	// 	}
+	// }
+	// // // return op.Remove(ctx, storage, actualPath, objs)
+	// err = fs.Remove(c.Request.Context(), reqDir, req.Names)
+
+	if err != nil {
+		common.ErrorResp(c, err, 500)
+		return
 	}
+
 	//fs.ClearCache(req.Dir)
 	common.SuccessResp(c)
 }

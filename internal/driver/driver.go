@@ -98,7 +98,7 @@ type IUploadInfo interface {
 
 // IPreup 预上传接口
 type IPreup interface {
-	Preup(ctx context.Context, srcobj model.Obj, req *reqres.PreupReq) (model.PreupInfo, error)
+	Preup(ctx context.Context, srcobj model.Obj, req *reqres.PreupReq) (*model.PreupInfo, error)
 }
 
 // ISliceUpload 分片上传接口

@@ -1,7 +1,6 @@
 package handles
 
 import (
-	"encoding/json"
 	"io"
 	"net/url"
 	stdpath "path"
@@ -217,6 +216,10 @@ func FsForm(c *gin.Context) {
 // 4. 如果中途出现问题，可以重新进行分片上传流程，后端根据记录的信息进行恢复
 // 如果网盘不支持分片上传，则会进行本地中转，对客户端来说，仍然是分片上传
 
+// 如果使用这个功能上传了文件，后又删除了文件，重新上传（文件未变动，上传目录不变），会报错
+// 因为数据库中记录了上传信息，分片已经上传完成，会直接调用分片上传完成，而网盘并没有接收到上传分片的过程
+// 如果要重新上传，需要删除数据库中的对应记录
+
 // FsUpInfo 获取上传所需的信息
 func FsUpInfo(c *gin.Context) {
 	storage := c.Request.Context().Value(conf.StorageKey)
@@ -254,13 +257,21 @@ func FsPreup(c *gin.Context) {
 // FsUpSlice 上传分片
 func FsUpSlice(c *gin.Context) {
 	req := &reqres.UploadSliceReq{}
-	mstr := c.PostForm("metadata")
-	err := json.Unmarshal([]byte(mstr), req)
+	req.SliceHash = c.PostForm("slice_hash")
+	sn, err := strconv.ParseUint(c.PostForm("slice_num"), 10, 32)
 	if err != nil {
 		common.ErrorResp(c, err, 400)
 		return
 	}
-	file, err := c.FormFile("file")
+	req.SliceNum = uint(sn)
+	upid, err := strconv.ParseUint(c.PostForm("upload_id"), 10, 64)
+	if err != nil {
+		common.ErrorResp(c, err, 400)
+		return
+	}
+	req.UploadID = uint(upid)
+
+	file, err := c.FormFile("slice")
 	if err != nil {
 		common.ErrorResp(c, err, 400)
 		return
@@ -272,7 +283,7 @@ func FsUpSlice(c *gin.Context) {
 	}
 	defer fd.Close()
 
-	storage := c.Request.Context().Value("storage").(driver.Driver)
+	storage := c.Request.Context().Value(conf.StorageKey).(driver.Driver)
 
 	err = fs.UploadSlice(c.Request.Context(), storage, req, fd)
 	if err != nil {
@@ -290,7 +301,7 @@ func FsUpSliceComplete(c *gin.Context) {
 		common.ErrorResp(c, err, 400)
 		return
 	}
-	storage := c.MustGet("storage").(driver.Driver)
+	storage := c.Request.Context().Value(conf.StorageKey).(driver.Driver)
 	rsp, err := fs.SliceUpComplete(c.Request.Context(), storage, req.UploadID)
 	if err != nil {
 		common.ErrorResp(c, err, 500)

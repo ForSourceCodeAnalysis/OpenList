@@ -259,3 +259,9 @@ type RenameObj struct {
 	SrcName string `json:"src_name"`
 	NewName string `json:"new_name"`
 }
+
+type Hash struct {
+	Md5      string `json:"md5"`
+	Md5256KB string `json:"md5_256kb"`
+	Sha1     string `json:"sha1"`
+}

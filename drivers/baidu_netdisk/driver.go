@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/md5"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"io"
 	"mime/multipart"
@@ -48,7 +49,7 @@ func (d *BaiduNetdisk) GetUploadInfo() *model.UploadInfo {
 	return &model.UploadInfo{
 		SliceHashNeed:    true,
 		HashMd5Need:      true,
-		HashMd5256KBNeed: false,
+		HashMd5256KBNeed: true,
 	}
 }
 
@@ -411,13 +412,16 @@ func (d *BaiduNetdisk) GetDetails(ctx context.Context) (*model.StorageDetails, e
 
 // UploadSlice 上传分片
 func (d *BaiduNetdisk) UploadSlice(c context.Context, req *tables.SliceUpload, sliceno uint, fd multipart.File) error {
+// SliceUpload 上传分片
+func (d *BaiduNetdisk) SliceUpload(c context.Context, req *tables.SliceUpload, sliceno uint, fd multipart.File) error {
+	fp := filepath.Join(req.DstPath, req.Name)
 	if sliceno == 0 { //第一个分片需要先执行预上传
 		rtype := 1
 		if req.Overwrite {
 			rtype = 3
 		}
 		precreateResp, err := d.precreate(&PrecreateReq{
-			Path:       req.DstPath,
+			Path:       fp,
 			Size:       req.Size,
 			Isdir:      0,
 			BlockList:  strings.Split(req.SliceHash, ","),
@@ -435,7 +439,7 @@ func (d *BaiduNetdisk) UploadSlice(c context.Context, req *tables.SliceUpload, s
 		"method":       "upload",
 		"access_token": d.AccessToken,
 		"type":         "tmpfile",
-		"path":         req.DstPath,
+		"path":         fp,
 		"uploadid":     req.PreupID,
 		"partseq":      strconv.Itoa(int(sliceno)),
 	}, req.Name, fd)
@@ -452,10 +456,14 @@ func (d *BaiduNetdisk) Preup(ctx context.Context, srcobj model.Obj, req *reqres.
 
 // UploadSliceComplete 分片上传完成
 func (d *BaiduNetdisk) UploadSliceComplete(ctx context.Context, su *tables.SliceUpload) error {
-
+	fp := filepath.Join(su.DstPath, su.Name)
 	rsp := &SliceUpCompleteResp{}
 	t := time.Now().Unix()
-	b, err := d.create(su.DstPath, int64(su.Size), 0, su.PreupID, su.SliceHash, rsp, t, t)
+	sh, err := json.Marshal(strings.Split(su.SliceHash, ","))
+	if err != nil {
+		return err
+	}
+	b, err := d.create(fp, int64(su.Size), 0, su.PreupID, string(sh), rsp, t, t)
 	if err != nil {
 		log.Error(err, rsp, string(b))
 	}

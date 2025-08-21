@@ -19,6 +19,7 @@ import (
 
 // QueueHandlerProxyUpload 代理上传
 func QueueHandlerProxyUpload(ctx context.Context, t *asynq.Task) error {
+	logrus.Info("QueueHandlerProxyUpload starting...")
 	var err error
 	var p tables.SliceUpload
 	if err := json.Unmarshal(t.Payload(), &p); err != nil {
@@ -33,8 +34,10 @@ func QueueHandlerProxyUpload(ctx context.Context, t *asynq.Task) error {
 		logrus.Error(qiID, errors.WithStack(err))
 		return err
 	}
+	qItem.StartAt = time.Now()
 
 	qItem.Status = tables.QueueItemStatusRunning
+	db.GetDb().Save(qItem)
 
 	defer func() {
 		if err != nil {
@@ -72,7 +75,7 @@ func QueueHandlerProxyUpload(ctx context.Context, t *asynq.Task) error {
 
 	s := &stream.FileStream{
 		Obj: &model.Object{
-			Name:     info.Name(),
+			Name:     p.Name,
 			Size:     info.Size(),
 			Modified: info.ModTime(),
 			HashInfo: hashInfo,

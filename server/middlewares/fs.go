@@ -36,6 +36,11 @@ func FsRemove(c *gin.Context) {
 		return user.CanRemove()
 	})
 }
+func FsSliceUp(c *gin.Context) {
+	fs(c, true, func(user *model.User, meta *model.Meta, path string, password string) bool {
+		return common.CanAccess(user, meta, path, password) && (user.CanWrite() || common.CanWrite(meta, stdpath.Dir(path)))
+	})
+}
 
 func fs(c *gin.Context, withstorage bool, permission permissionFunc) {
 	path := c.GetHeader("File-Path")
@@ -50,6 +55,7 @@ func fs(c *gin.Context, withstorage bool, permission permissionFunc) {
 	path, err = user.JoinPath(path)
 	if err != nil {
 		common.ErrorResp(c, err, 403)
+		c.Abort()
 		return
 	}
 	meta, err := op.GetNearestMeta(stdpath.Dir(path))
@@ -79,9 +85,10 @@ func fs(c *gin.Context, withstorage bool, permission permissionFunc) {
 			c.Abort()
 			return
 		}
-
 		common.GinWithValue(c, conf.StorageKey, storage)
 		common.GinWithValue(c, conf.PathKey, actualPath) //这里的路径已经是网盘真实路径了
+
 	}
+
 	c.Next()
 }

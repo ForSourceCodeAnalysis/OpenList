@@ -40,6 +40,7 @@ func Init() {
 // Start starts the queue server
 func Start() {
 	go func() {
+		logrus.Info("Starting queue server")
 		if err := server.Run(mux); err != nil {
 			logrus.Fatal(errors.WithStack(err))
 		}

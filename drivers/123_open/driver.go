@@ -221,7 +221,7 @@ func (d *Open123) Preup(c context.Context, srcobj model.Obj, req *reqres.PreupRe
 
 	ucr := &UploadCreateReq{
 		ParentFileID: pid,
-		Etag:         req.HashMd5,
+		Etag:         req.Hash.Md5,
 		FileName:     req.Name,
 		Size:         int64(req.Size),
 		Duplicate:    duplicate,
@@ -240,7 +240,7 @@ func (d *Open123) Preup(c context.Context, srcobj model.Obj, req *reqres.PreupRe
 }
 
 // UploadSlice 上传分片
-func (d *Open123) UploadSlice(c context.Context, req *tables.SliceUpload, sliceno uint, fd multipart.File) error {
+func (d *Open123) SliceUpload(c context.Context, req *tables.SliceUpload, sliceno uint, fd multipart.File) error {
 	sh := strings.Split(req.SliceHash, ",")
 	r := &UploadSliceReq{
 		Name:        req.Name,

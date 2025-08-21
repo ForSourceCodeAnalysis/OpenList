@@ -1,13 +1,14 @@
 package reqres
 
+import "github.com/OpenListTeam/OpenList/v4/internal/model"
+
 // PreupReq 预上传请求
 type PreupReq struct {
-	Name         string `json:"name"`
-	Size         uint64 `json:"size"`
-	HashMd5      string `json:"hash_md5"`
-	HashMd5256KB string `json:"hash_md5_256kb"`
-	HashSha1     string `json:"hash_sha1"`
-	Overwrite    bool   `json:"overwrite"` // 是否覆盖同名文件
+	Path      string     `json:"path"` // 上传到的挂载路径
+	Name      string     `json:"name"`
+	Size      uint64     `json:"size"`
+	Hash      model.Hash `json:"hash"`
+	Overwrite bool       `json:"overwrite"` // 是否覆盖同名文件
 }
 
 // PreupResp 预上传响应
@@ -35,5 +36,5 @@ type UploadSliceCompleteReq struct {
 type UploadSliceCompleteResp struct {
 	UploadID          uint   `json:"upload_id"`           // 上传ID，不是网盘返回的，是本地数据的id
 	SliceUploadStatus []byte `json:"slice_upload_status"` // 分片上传状态
-	Complete          bool   `json:"complete"`            //是否完成，如果没有完成，需要根据上面的SliceUploadStatus重新上传缺失的分片
+	Complete          uint   `json:"complete"`            //完成状态 0 未完成，分片缺失 1 完成 2 成功上传到代理服务
 }

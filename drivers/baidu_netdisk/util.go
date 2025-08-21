@@ -2,6 +2,7 @@ package baidu_netdisk
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -306,22 +307,26 @@ func (d *BaiduNetdisk) create(path string, size int64, isdir int, uploadid, bloc
 	return d.postForm("/xpan/file", params, form, resp)
 }
 func (d *BaiduNetdisk) precreate(req *PrecreateReq) (*PrecreateResp, error) {
-	b := map[string]any{
+	bl, err := json.Marshal(req.BlockList)
+	if err != nil {
+		log.Errorf("json.Marshal error: %v", err)
+		return nil, err
+	}
+	b := map[string]string{
 		"path":        req.Path,
-		"size":        req.Size,
-		"isdir":       req.Isdir,
-		"autoinit":    req.Autoinit,
-		"rtype":       req.Rtype,
-		"block_list":  req.BlockList,
+		"size":        strconv.Itoa(int(req.Size)),
+		"isdir":       strconv.Itoa(req.Isdir),
+		"autoinit":    strconv.Itoa(req.Autoinit),
+		"rtype":       strconv.Itoa(req.Rtype),
+		"block_list":  string(bl),
 		"content-md5": req.ContentMd5,
 		"slice-md5":   req.SliceMd5,
 	}
+
 	res := &PrecreateResp{}
 	r, err := d.request("https://pan.baidu.com/rest/2.0/xpan/file", http.MethodPost, func(rt *resty.Request) {
 		rt.SetQueryParam("method", "precreate").
-			SetHeader("User-Agent", "pan.baidu.com").
-			SetHeader("Content-Type", "application/json").
-			SetBody(b)
+			SetFormData(b)
 
 	}, res)
 	if err != nil {

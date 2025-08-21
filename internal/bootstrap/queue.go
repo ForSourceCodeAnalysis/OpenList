@@ -11,4 +11,5 @@ func InitQueue() {
 	queue.RegisterHandler(queue.TaskTypeProxyUp, queuehandler.QueueHandlerProxyUpload)
 	// queue.RegisterHandler(queue.TaskTypeMove, queuehandler.QHMoveCopyTask)
 	// queue.RegisterHandler(queue.TaskTypeCopy, queuehandler.QHMoveCopyTask)
+	queue.Start()
 }

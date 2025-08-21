@@ -10,6 +10,7 @@ import (
 	"github.com/OpenListTeam/OpenList/v4/pkg/utils"
 )
 
+// File 文件属性
 type File struct {
 	FileName     string `json:"filename"`
 	Size         int64  `json:"size"`
@@ -75,14 +76,33 @@ type BaseResp struct {
 	Code     int    `json:"code"`
 	Message  string `json:"message"`
 	XTraceID string `json:"x-traceID"`
-	Data     any    `json:"data"`
 }
 
+func (r BaseResp) GetCode() int {
+	return r.Code
+}
+func (r BaseResp) GetMessage() string {
+	return r.Message
+}
+
+type IOpen123Resp interface {
+	GetCode() int
+	GetMessage() string
+}
+
+type AccessTokenResp struct {
+	BaseResp
+	Data AccessTokenInfo `json:"data"`
+}
 type AccessTokenInfo struct {
 	AccessToken string    `json:"accessToken"`
 	ExpiredAt   time.Time `json:"expiredAt"`
 }
 
+type RefreshTokenResp struct {
+	BaseResp
+	Data RefreshTokenInfo `json:"data"`
+}
 type RefreshTokenInfo struct {
 	AccessToken  string `json:"access_token"`
 	ExpiresIn    int    `json:"expires_in"`
@@ -91,6 +111,10 @@ type RefreshTokenInfo struct {
 	TokenType    string `json:"token_type"`
 }
 
+type UserInfoResp struct {
+	BaseResp
+	Data UserInfo `json:"data"`
+}
 type UserInfo struct {
 	UID            int64  `json:"uid"`
 	Username       string `json:"username"`
@@ -107,9 +131,19 @@ type UserInfo struct {
 	IsHideUID      bool   `json:"isHideUID"`
 }
 
+type FileListResp struct {
+	BaseResp
+	Data FileListInfo `json:"data"`
+}
+
 type FileListInfo struct {
 	LastFileId int64  `json:"lastFileId"`
 	FileList   []File `json:"fileList"`
+}
+
+type DownloadResp struct {
+	BaseResp
+	Data DownloadInfo `json:"data"`
 }
 
 type DownloadInfo struct {
@@ -133,13 +167,18 @@ type UploadCreateReq struct {
 	ContainDir   bool   `json:"containDir"`
 }
 
-// UploadCreateResp 预上传响应
+type UploadCreateResp struct {
+	BaseResp
+	Data UploadCreateData `json:"data"`
+}
+
+// UploadCreateData 预上传响应
 // fileID	number	非必填	文件ID。当123云盘已有该文件,则会发生秒传。此时会将文件ID字段返回。唯一
 // preuploadID	string	必填	预上传ID(如果 reuse 为 true 时,该字段不存在)
 // reuse	boolean	必填	是否秒传，返回true时表示文件已上传成功
 // sliceSize	number	必填	分片大小，必须按此大小生成文件分片再上传
 // servers	array	必填	上传地址
-type UploadCreateResp struct {
+type UploadCreateData struct {
 	FileID      uint64   `json:"fileID"`
 	PreuploadID string   `json:"preuploadID"`
 	Reuse       bool     `json:"reuse"`
@@ -159,6 +198,15 @@ type UploadSliceReq struct {
 	SliceMD5    string         `json:"sliceMD5"`
 	Slice       multipart.File `json:"slice"`
 	Server      string         `json:"server"`
+}
+
+type SliceUpCompleteResp struct {
+	SingleUploadResp
+}
+
+type GetUploadServerResp struct {
+	BaseResp
+	Data []string `json:"data"`
 }
 
 // SingleUploadReq 单文件上传请求
@@ -184,6 +232,11 @@ type SingleUploadReq struct {
 
 // SingleUploadResp 单文件上传响应
 type SingleUploadResp struct {
+	BaseResp
+	Data SingleUploadData `json:"data"`
+}
+
+type SingleUploadData struct {
 	FileID    int64 `json:"fileID"`
 	Completed bool  `json:"completed"`
 }

@@ -249,19 +249,19 @@ func PutURL(ctx context.Context, path, dstName, urlStr string) error {
 /// 分片上传功能--------------------------------------------------------------------
 
 // Preup 预上传
-func Preup(c context.Context, s driver.Driver, ppath string, req *reqres.PreupReq) (*reqres.PreupResp, error) {
+func Preup(c context.Context, s driver.Driver, actualPath string, req *reqres.PreupReq) (*reqres.PreupResp, error) {
 	wh := map[string]any{}
-	wh["dst_path"] = ppath
+	wh["dst_path"] = req.Path
 	wh["name"] = req.Name
 	wh["size"] = req.Size
-	if req.HashMd5 != "" {
-		wh["hash_md5"] = req.HashMd5
+	if req.Hash.Md5 != "" {
+		wh["hash_md5"] = req.Hash.Md5
 	}
-	if req.HashSha1 != "" {
-		wh["hash_sha1"] = req.HashSha1
+	if req.Hash.Sha1 != "" {
+		wh["hash_sha1"] = req.Hash.Sha1
 	}
-	if req.HashMd5256KB != "" {
-		wh["hash_md5_256kb"] = req.HashMd5256KB
+	if req.Hash.Md5256KB != "" {
+		wh["hash_md5_256kb"] = req.Hash.Md5256KB
 	}
 
 	su, err := db.GetSliceUpload(wh)
@@ -278,34 +278,34 @@ func Preup(c context.Context, s driver.Driver, ppath string, req *reqres.PreupRe
 			SliceUploadStatus: su.SliceUploadStatus,
 		}, nil
 	}
-	//使用id管理文件
-	var srcobj model.Obj
-	if s.Config().ManageFileUseID {
-		obj, err := op.Get(c, s, ppath)
-		if err != nil {
-			log.Error(err)
-			return nil, errors.WithStack(err)
-		}
-		srcobj = obj
+	srcobj, err := op.Get(c, s, actualPath)
+	if err != nil {
+		log.Error(err)
+		return nil, errors.WithStack(err)
 	}
+
 	//不存在
 	createsu := &tables.SliceUpload{
-		DstPath:      ppath,
+		DstPath:      req.Path,
 		DstID:        srcobj.GetID(),
 		Size:         req.Size,
 		Name:         req.Name,
-		HashMd5:      req.HashMd5,
-		HashMd5256KB: req.HashMd5256KB,
-		HashSha1:     req.HashSha1,
+		HashMd5:      req.Hash.Md5,
+		HashMd5256KB: req.Hash.Md5256KB,
+		HashSha1:     req.Hash.Sha1,
 		Overwrite:    req.Overwrite,
+		ActualPath:   actualPath,
 	}
+	log.Infof("storage mount path %s", s.GetStorage().MountPath)
 	switch st := s.(type) {
 	case driver.IPreup:
+		log.Info("preup support")
 		res, err := st.Preup(c, srcobj, req)
 		if err != nil {
 			log.Error("Preup error", req, err)
 			return nil, errors.WithStack(err)
 		}
+		log.Info("Preup success", res)
 		if res.Reuse { //秒传
 			return &reqres.PreupResp{
 				Reuse:     true,
@@ -319,6 +319,7 @@ func Preup(c context.Context, s driver.Driver, ppath string, req *reqres.PreupRe
 		createsu.SliceSize = res.SliceSize
 		createsu.Server = res.Server
 	default:
+		log.Info("Preup not support")
 		createsu.SliceSize = 10 * utils.MB
 	}
 	createsu.SliceCnt = uint((req.Size + createsu.SliceSize - 1) / createsu.SliceSize)
@@ -375,34 +376,36 @@ func UploadSlice(ctx context.Context, storage driver.Driver, req *reqres.UploadS
 		}
 	}()
 
-	sliceHash := []string{} // 分片hash
-	if tables.IsSliceUploaded(msu.SliceUploadStatus, int(req.SliceNum)) {
-		log.Warnf("slice already uploaded,req:%+v", req)
-		return nil
-	}
+	if req.SliceHash != "" {
+		sliceHash := []string{} // 分片hash
+		if tables.IsSliceUploaded(msu.SliceUploadStatus, int(req.SliceNum)) {
+			log.Warnf("slice already uploaded,req:%+v", req)
+			return nil
+		}
 
-	//验证分片hash值
-	if req.SliceNum == 0 { //第一个分片，slicehash是所有的分片hash
-		hs := strings.Split(req.SliceHash, ",")
-		if len(hs) != int(msu.SliceCnt) {
-			msg := fmt.Sprintf("failed verify slice hash cnt req: %+v", req)
-			log.Error(msg)
-			return errors.New(msg)
-		}
-		// 更新分片hash
-		msu.SliceHash = req.SliceHash
-		if err := db.UpdateSliceUpload(msu.SliceUpload); err != nil {
-			log.Error("UpdateSliceUpload error", msu.SliceUpload, err)
-			return err
-		}
-		msu.Status = tables.SliceUploadStatusUploading
-		sliceHash = hs
-	} else { // 如果不是第一个分片，slicehash是当前分片hash
-		sliceHash = strings.Split(msu.SliceHash, ",")
-		if req.SliceHash != sliceHash[req.SliceNum] { //比对分片hash是否与之前上传的一致
-			msg := fmt.Sprintf("failed verify slice hash,req: [%+v]", req)
-			log.Error(msg)
-			return errors.New(msg)
+		//验证分片hash值
+		if req.SliceNum == 0 { //第一个分片，slicehash是所有的分片hash
+			hs := strings.Split(req.SliceHash, ",")
+			if len(hs) != int(msu.SliceCnt) {
+				msg := fmt.Sprintf("failed verify slice hash cnt req: %+v", req)
+				log.Error(msg)
+				return errors.New(msg)
+			}
+			// 更新分片hash
+			msu.SliceHash = req.SliceHash
+			if err := db.UpdateSliceUpload(msu.SliceUpload); err != nil {
+				log.Error("UpdateSliceUpload error", msu.SliceUpload, err)
+				return err
+			}
+			msu.Status = tables.SliceUploadStatusUploading
+			sliceHash = hs
+		} else { // 如果不是第一个分片，slicehash是当前分片hash
+			sliceHash = strings.Split(msu.SliceHash, ",")
+			if req.SliceHash != sliceHash[req.SliceNum] { //比对分片hash是否与之前上传的一致
+				msg := fmt.Sprintf("failed verify slice hash,req: [%+v]", req)
+				log.Error(msg)
+				return errors.New(msg)
+			}
 		}
 	}
 
@@ -420,16 +423,17 @@ func UploadSlice(ctx context.Context, storage driver.Driver, req *reqres.UploadS
 				log.Error("CreateTemp error", req, err)
 				return err
 			}
-			err = os.Truncate(tf.Name(), int64(msu.Size))
+			abspath := tf.Name() //这里返回的是绝对路径
+			err = os.Truncate(abspath, int64(msu.Size))
 			if err != nil {
 				log.Error("Truncate error", req, err)
 				return err
 			}
-			msu.TmpFile = filepath.Join(conf.Conf.TempDir, tf.Name())
+			msu.TmpFile = abspath
 			msu.tmpFile = tf
 		}
 		if msu.tmpFile == nil {
-			msu.tmpFile, err = os.OpenFile(filepath.Join(conf.Conf.TempDir, msu.TmpFile), os.O_RDWR, 0644)
+			msu.tmpFile, err = os.OpenFile(msu.TmpFile, os.O_RDWR, 0644)
 			if err != nil {
 				log.Error("OpenFile error", req, msu.TmpFile, err)
 				return err
@@ -479,7 +483,7 @@ func SliceUpComplete(ctx context.Context, storage driver.Driver, uploadID uint) 
 	}
 	if !tables.IsAllSliceUploaded(msu.SliceUploadStatus, msu.SliceCnt) {
 		return &reqres.UploadSliceCompleteResp{
-			Complete:          false,
+			Complete:          0,
 			SliceUploadStatus: msu.SliceUploadStatus,
 			UploadID:          msu.ID,
 		}, nil
@@ -503,9 +507,8 @@ func SliceUpComplete(ctx context.Context, storage driver.Driver, uploadID uint) 
 		msu.Status = tables.SliceUploadStatusComplete
 		db.UpdateSliceUpload(msu.SliceUpload)
 		rsp := &reqres.UploadSliceCompleteResp{
-			Complete:          true,
-			SliceUploadStatus: msu.SliceUploadStatus,
-			UploadID:          msu.ID,
+			Complete: 1,
+			UploadID: msu.ID,
 		}
 		// 清理缓存及临时文件
 		if msu.tmpFile != nil {
@@ -522,14 +525,18 @@ func SliceUpComplete(ctx context.Context, storage driver.Driver, uploadID uint) 
 			log.Error("json.Marshal error", msu.SliceUpload, err)
 			return nil, err
 		}
+		log.Infof("add queue,upload id %d ", msu.ID)
 		err = queue.AddQueue(queue.TaskTypeProxyUp, payload)
 		if err != nil {
 			log.Error("AddQueue error", msu.SliceUpload, err)
 			return nil, err
 		}
+		sliceupMap.Delete(msu.ID)
+		return &reqres.UploadSliceCompleteResp{
+			Complete: 2,
+			UploadID: msu.ID,
+		}, nil
 
 	}
-
-	return nil, nil
 
 }

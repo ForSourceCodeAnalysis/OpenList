@@ -12,7 +12,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func (d *Open123) Request(url, method string, callback base.ReqCallback, resp interface{}) ([]byte, error) {
+func (d *Open123) Request(url, method string, callback base.ReqCallback, resp IOpen123Resp) ([]byte, error) {
 	if d.ExpiredAt.Before(time.Now()) {
 		if err := d.flushAccessToken(); err != nil {
 			return nil, err
@@ -51,9 +51,8 @@ func (d *Open123) Request(url, method string, callback base.ReqCallback, resp in
 		if res.StatusCode() != http.StatusOK {
 			return nil, fmt.Errorf("request failed, url: %s,statuscode: %d,message:%s", url, res.StatusCode(), res.String())
 		}
-		r := resp.(*BaseResp)
 
-		switch r.Code {
+		switch resp.GetCode() {
 		case 0:
 			return res.Body(), nil
 		case 401:
@@ -66,6 +65,11 @@ func (d *Open123) Request(url, method string, callback base.ReqCallback, resp in
 		case 429:
 			time.Sleep(time.Second * time.Duration(i+1))
 			log.Warningf("API: %s, 请求太频繁，对应API提示过多请减小QPS", url)
+		case 20103: //code: 20103, error: 文件正在校验中,请间隔1秒后再试
+			time.Sleep(time.Second * 2)
+		default:
+			log.Warnf("API: %s, body:%s, code: %d, error: %s", url, res.Body(), resp.GetCode(), resp.GetMessage())
+			return res.Body(), errors.New(resp.GetMessage())
 		}
 	}
 	return nil, fmt.Errorf("request failed, url: %s, max retry count excceed ", url)
@@ -75,10 +79,7 @@ func (d *Open123) Request(url, method string, callback base.ReqCallback, resp in
 func (d *Open123) flushAccessToken() error {
 	// 第三方授权应用刷新token
 	if d.RefreshToken != "" {
-		r := &BaseResp{
-			Code: -1,
-			Data: &RefreshTokenInfo{},
-		}
+		r := &RefreshTokenResp{}
 		res, err := base.RestyClient.R().
 			SetHeaders(map[string]string{
 				"Platform":     "open_platform",
@@ -103,17 +104,14 @@ func (d *Open123) flushAccessToken() error {
 		if r.Code != 0 {
 			return fmt.Errorf("refresh token failed: %s", r.Message)
 		}
-		rt := r.Data.(*RefreshTokenInfo)
-		d.RefreshToken = rt.RefreshToken
-		d.AccessToken = rt.AccessToken
-		d.ExpiredAt = time.Now().Add(time.Duration(rt.ExpiresIn) * time.Second)
+
+		d.RefreshToken = r.Data.RefreshToken
+		d.AccessToken = r.Data.AccessToken
+		d.ExpiredAt = time.Now().Add(time.Duration(r.Data.ExpiresIn) * time.Second)
 		return nil
 	}
 
-	r := &BaseResp{
-		Code: -1,
-		Data: &AccessTokenInfo{},
-	}
+	r := &AccessTokenResp{}
 	res, err := base.RestyClient.R().
 		SetHeaders(map[string]string{
 			"Platform":     "open_platform",
@@ -136,18 +134,15 @@ func (d *Open123) flushAccessToken() error {
 	if r.Code != 0 {
 		return fmt.Errorf("refresh token failed: %s", r.Message)
 	}
-	ac := r.Data.(*AccessTokenInfo)
-	d.AccessToken = ac.AccessToken
-	d.ExpiredAt = ac.ExpiredAt
+
+	d.AccessToken = r.Data.AccessToken
+	d.ExpiredAt = r.Data.ExpiredAt
 
 	return nil
 }
 
 func (d *Open123) getFiles(parentFileId int64, limit int, lastFileId int64) (*FileListInfo, error) {
-	resp := &BaseResp{
-		Code: -1,
-		Data: &FileListInfo{},
-	}
+	resp := &FileListResp{}
 
 	_, err := d.Request(baseURL+fileListAPI, http.MethodGet, func(req *resty.Request) {
 		req.SetQueryParams(
@@ -161,14 +156,11 @@ func (d *Open123) getFiles(parentFileId int64, limit int, lastFileId int64) (*Fi
 			})
 	}, resp)
 
-	return resp.Data.(*FileListInfo), err
+	return &resp.Data, err
 }
 
 func (d *Open123) getDownloadInfo(fileID int64) (*DownloadInfo, error) {
-	resp := BaseResp{
-		Code: -1,
-		Data: &DownloadInfo{},
-	}
+	resp := DownloadResp{}
 
 	_, err := d.Request(baseURL+downloadInfoAPI, http.MethodGet, func(req *resty.Request) {
 		req.SetQueryParams(map[string]string{
@@ -176,7 +168,7 @@ func (d *Open123) getDownloadInfo(fileID int64) (*DownloadInfo, error) {
 		})
 	}, &resp)
 
-	return resp.Data.(*DownloadInfo), err
+	return &resp.Data, err
 }
 
 func (d *Open123) mkdir(parentID int64, name string) error {
@@ -245,42 +237,38 @@ func (d *Open123) uploadSlice(req *UploadSliceReq) error {
 }
 
 func (d *Open123) sliceUpComplete(uploadID string) error {
-	r := &BaseResp{
-		Code: -1,
-		Data: &SingleUploadResp{},
-	}
-	_, err := d.Request(baseURL+uploadCompleteV2API, http.MethodPost, func(req *resty.Request) {
+	r := &SliceUpCompleteResp{}
+
+	b, err := d.Request(baseURL+uploadCompleteV2API, http.MethodPost, func(req *resty.Request) {
 		req.SetBody(base.Json{
 			"preuploadID": uploadID,
 		})
 	}, r)
 	if err != nil {
+		log.Error("123 open uploadComplete error", err)
 		return err
 	}
-	rd := r.Data.(*SingleUploadResp)
-	if rd.Completed {
+	log.Infof("upload complete,body: %s", string(b))
+	if r.Data.Completed {
 		return nil
 	}
+
 	return errors.New("upload uncomplete")
 
 }
 
 func (d *Open123) getUploadServer() (string, error) {
-	r := &BaseResp{
-		Code: -1,
-		Data: []string{},
-	}
+	r := &GetUploadServerResp{}
 	body, err := d.Request(baseURL+uploadDomainAPI, "GET", nil, r)
 	if err != nil {
 		log.Error("get upload server failed", string(body), r, err)
 		return "", err
 	}
-	ri, ok := r.Data.([]any)
-	if !ok || len(ri) == 0 {
-		return "", errors.New("get upload server error")
+	if len(r.Data) == 0 {
+		return "", errors.New("upload server is empty")
 	}
 
-	return ri[0].(string), err
+	return r.Data[0], err
 }
 
 func (d *Open123) singleUpload(req *SingleUploadReq) error {
@@ -293,10 +281,7 @@ func (d *Open123) singleUpload(req *SingleUploadReq) error {
 		log.Error("file is nil")
 		return errors.New("file is nil")
 	}
-	r := &BaseResp{
-		Code: -1,
-		Data: &SingleUploadResp{},
-	}
+	r := &SingleUploadResp{}
 	_, err = d.Request(url+uploadSingleCreateAPI, "POST", func(rt *resty.Request) {
 		rt.SetHeader("Content-Type", "multipart/form-data")
 		rt.SetMultipartFormData(map[string]string{
@@ -313,24 +298,20 @@ func (d *Open123) singleUpload(req *SingleUploadReq) error {
 		return err
 	}
 	log.Info("123 open single upload success")
-	rd := r.Data.(*SingleUploadResp)
-	if rd.Completed {
+	if r.Data.Completed {
 		return nil
 	}
 	return errors.New("upload uncomplete")
 }
 
-func (d *Open123) uploadCreate(uc *UploadCreateReq) (*UploadCreateResp, error) {
-	r := BaseResp{
-		Code: -1,
-		Data: &UploadCreateResp{},
-	}
-	_, err := d.Request(uploadCreateV2API, http.MethodPost, func(req *resty.Request) {
+func (d *Open123) uploadCreate(uc *UploadCreateReq) (*UploadCreateData, error) {
+	r := &UploadCreateResp{}
+	_, err := d.Request(baseURL+uploadCreateV2API, http.MethodPost, func(req *resty.Request) {
 		req.SetBody(uc)
 	}, r)
 	if err != nil {
 		log.Error("123 open uploadCreate error", err)
 	}
-	return r.Data.(*UploadCreateResp), err
+	return &r.Data, err
 
 }

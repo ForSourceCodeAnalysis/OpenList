@@ -189,10 +189,10 @@ func _fs(g *gin.RouterGroup) {
 	g.PUT("/form", middlewares.FsUp, uploadLimiter, handles.FsForm)
 	g.POST("/link", middlewares.AuthAdmin, handles.Link)
 
-	g.GET("/upload/info", middlewares.FsUp, handles.FsUpInfo)
-	g.POST("/preup", middlewares.FsUp, handles.FsPreup)
-	g.POST("/slice_upload", middlewares.FsUp, handles.FsUpSlice)
-	g.POST("/slice_upload_complete", handles.FsUpSliceComplete)
+	g.GET("/upload/info", middlewares.FsSliceUp, handles.FsUpInfo)
+	g.POST("/preup", middlewares.FsSliceUp, handles.FsPreup)
+	g.POST("/slice_upload", middlewares.FsSliceUp, handles.FsUpSlice)
+	g.POST("/slice_upload_complete", middlewares.FsSliceUp, handles.FsUpSliceComplete)
 
 	// g.POST("/add_aria2", handles.AddOfflineDownload)
 	// g.POST("/add_qbit", handles.AddQbittorrent)

@@ -18,8 +18,7 @@ type Config struct {
 	NoOverwriteUpload bool `json:"-"`
 	ProxyRangeOption  bool `json:"-"`
 	// if the driver returns Link without URL, this should be set to true
-	NoLinkURL       bool `json:"-"`
-	ManageFileUseID bool `json:"-"` //网盘是否使用id管理文件，有的是使用path
+	NoLinkURL bool `json:"-"`
 }
 
 func (c Config) MustProxy() bool {

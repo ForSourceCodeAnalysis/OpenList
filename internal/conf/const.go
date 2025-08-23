@@ -176,4 +176,5 @@ const (
 	PathKey
 	StorageKey
 	SharingIDKey
+	StorageKey
 )

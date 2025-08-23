@@ -12,6 +12,12 @@ import (
 	"strings"
 	"sync"
 
+	"strings"
+	"sync"
+
+	log "github.com/sirupsen/logrus"
+	"gorm.io/gorm"
+
 	"github.com/OpenListTeam/OpenList/v4/internal/conf"
 	"github.com/OpenListTeam/OpenList/v4/internal/db"
 	"github.com/OpenListTeam/OpenList/v4/internal/driver"
@@ -283,6 +289,7 @@ func Preup(c context.Context, s driver.Driver, actualPath string, req *reqres.Pr
 		log.Error(err)
 		return nil, errors.WithStack(err)
 	}
+	user, _ := c.Value(conf.UserKey).(*model.User)
 
 	//不存在
 	createsu := &tables.SliceUpload{
@@ -295,6 +302,8 @@ func Preup(c context.Context, s driver.Driver, actualPath string, req *reqres.Pr
 		HashSha1:     req.Hash.Sha1,
 		Overwrite:    req.Overwrite,
 		ActualPath:   actualPath,
+		UserID:       user.ID,
+		AsTask:       req.AsTask,
 	}
 	log.Infof("storage mount path %s", s.GetStorage().MountPath)
 	switch st := s.(type) {
@@ -496,6 +505,11 @@ func SliceUpComplete(ctx context.Context, storage driver.Driver, uploadID uint) 
 			msu.Message = err.Error()
 			db.UpdateSliceUpload(msu.SliceUpload)
 		}
+		if msu.tmpFile != nil {
+			msu.tmpFile.Close()
+		}
+		sliceupMap.Delete(msu.ID)
+
 	}()
 	switch s := storage.(type) {
 	case driver.IUploadSliceComplete:

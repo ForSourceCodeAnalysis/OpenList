@@ -11,7 +11,7 @@ type UploadInfo struct {
 // PreupInfo 预上传信息
 type PreupInfo struct {
 	PreupID   string `json:"preup_id"`   //预上传id，由网盘返回
-	SliceSize uint64 `json:"slice_size"` //分片大小
+	SliceSize int64  `json:"slice_size"` //分片大小
 	Server    string `json:"server"`     //上传服务器地址
 	Reuse     bool   `json:"reuse"`      //是否秒传
 }

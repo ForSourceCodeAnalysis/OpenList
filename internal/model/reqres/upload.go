@@ -6,15 +6,16 @@ import "github.com/OpenListTeam/OpenList/v4/internal/model"
 type PreupReq struct {
 	Path      string     `json:"path"` // 上传到的挂载路径
 	Name      string     `json:"name"`
-	Size      uint64     `json:"size"`
+	Size      int64      `json:"size"`
 	Hash      model.Hash `json:"hash"`
 	Overwrite bool       `json:"overwrite"` // 是否覆盖同名文件
+	AsTask    bool       `json:"as_task"`
 }
 
 // PreupResp 预上传响应
 type PreupResp struct {
 	UploadID          uint   `json:"upload_id"`           // 上传ID，不是网盘返回的，是本地数据的id
-	SliceSize         uint64 `json:"slice_size"`          //分片大小，单位：字节
+	SliceSize         int64  `json:"slice_size"`          //分片大小，单位：字节
 	SliceCnt          uint   `json:"slice_cnt"`           // 分片数量
 	SliceUploadStatus []byte `json:"slice_upload_status"` // 分片上传状态
 	Reuse             bool   `json:"reuse"`               //是否秒传

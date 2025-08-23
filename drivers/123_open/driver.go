@@ -3,6 +3,7 @@ package open123
 import (
 	"context"
 	"fmt"
+	"io"
 	"mime/multipart"
 	"slices"
 	"strconv"
@@ -389,6 +390,55 @@ func getUploadSlices(size int64, sliceSize int64, uploaded []int) []int {
 func (d *Open123) PutSlice(req *driver.DSliceUploadReq) error {
 
 	return nil
+// Preup 预上传
+func (d *Open123) Preup(c context.Context, srcobj model.Obj, req *reqres.PreupReq) (*model.PreupInfo, error) {
+	pid, err := strconv.ParseUint(srcobj.GetID(), 10, 64)
+	if err != nil {
+		return nil, err
+	}
+	duplicate := 1
+	if req.Overwrite {
+		duplicate = 2
+	}
+
+	ucr := &UploadCreateReq{
+		ParentFileID: pid,
+		Etag:         req.Hash.Md5,
+		FileName:     req.Name,
+		Size:         int64(req.Size),
+		Duplicate:    duplicate,
+	}
+
+	resp, err := d.uploadCreate(ucr)
+	if err != nil {
+		return nil, err
+	}
+	return &model.PreupInfo{
+		PreupID:   resp.PreuploadID,
+		Server:    resp.Servers[0],
+		SliceSize: resp.SliceSize,
+		Reuse:     resp.Reuse,
+	}, nil
+}
+
+// UploadSlice 上传分片
+func (d *Open123) SliceUpload(c context.Context, req *tables.SliceUpload, sliceno uint, fd io.Reader) error {
+	sh := strings.Split(req.SliceHash, ",")
+	r := &UploadSliceReq{
+		Name:        req.Name,
+		PreuploadID: req.PreupID,
+		Server:      req.Server,
+		Slice:       fd,
+		SliceMD5:    sh[sliceno],
+		SliceNo:     int(sliceno) + 1,
+	}
+	return d.uploadSlice(r)
+}
+
+// UploadSliceComplete 分片上传完成
+func (d *Open123) UploadSliceComplete(c context.Context, su *tables.SliceUpload) error {
+
+	return d.sliceUpComplete(su.PreupID)
 }
 
 var _ driver.Driver = (*Open123)(nil)

@@ -205,6 +205,55 @@ func (d *Open123) getFiles(parentFileId int64, limit int, lastFileId int64) (*Fi
 	var resp FileListResp
 
 	_, err := d.Request(baseURL+fileListAPI, http.MethodGet, func(req *resty.Request) {
+	// 生成随机数（建议使用UUID，不能包含中划线（-））
+	rand := strings.ReplaceAll(uuid.New().String(), "-", "")
+
+	// 解析URL
+	objURL, err := url.Parse(originURL)
+	if err != nil {
+		return "", err
+	}
+
+	// 待签名字符串，格式：path-timestamp-rand-uid-privateKey
+	unsignedStr := fmt.Sprintf("%s-%d-%s-%d-%s", objURL.Path, ts, rand, uid, privateKey)
+	md5Hash := md5.Sum([]byte(unsignedStr))
+	// 生成鉴权参数，格式：timestamp-rand-uid-md5hash
+	authKey := fmt.Sprintf("%d-%s-%d-%x", ts, rand, uid, md5Hash)
+
+	// 添加鉴权参数到URL查询参数
+	v := objURL.Query()
+	v.Add("auth_key", authKey)
+	objURL.RawQuery = v.Encode()
+
+	return objURL.String(), nil
+}
+
+func (d *Open123) getUserInfo() (*UserInfoResp, error) {
+	var resp UserInfoResp
+
+	if _, err := d.Request(UserInfo, http.MethodGet, nil, &resp); err != nil {
+		return nil, err
+	}
+
+	return &resp, nil
+}
+
+func (d *Open123) getUID() (uint64, error) {
+	if d.UID != 0 {
+		return d.UID, nil
+	}
+	resp, err := d.getUserInfo()
+	if err != nil {
+		return 0, err
+	}
+	d.UID = resp.Data.UID
+	return resp.Data.UID, nil
+}
+
+func (d *Open123) getFiles(parentFileId int64, limit int, lastFileId int64) (*FileListResp, error) {
+	var resp FileListResp
+
+	_, err := d.Request(FileList, http.MethodGet, func(req *resty.Request) {
 		req.SetQueryParams(
 			map[string]string{
 				"parentFileId": strconv.FormatInt(parentFileId, 10),
@@ -236,7 +285,7 @@ func (d *Open123) getDirectLink(fileId int64) (*DirectLinkResp, error) {
 
 	_, err := d.Request(DirectLink, http.MethodGet, func(req *resty.Request) {
 		req.SetQueryParams(map[string]string{
-			"fileId": strconv.FormatInt(fileId, 10),
+			"fileID": strconv.FormatInt(fileId, 10),
 		})
 	}, &resp)
 	if err != nil {

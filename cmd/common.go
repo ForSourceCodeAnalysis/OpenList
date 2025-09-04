@@ -20,7 +20,7 @@ func Init() {
 	bootstrap.InitStreamLimit()
 	bootstrap.InitIndex()
 	bootstrap.InitUpgradePatch()
-	bootstrap.InitQueue()
+	// bootstrap.InitQueue()
 }
 
 func Release() {

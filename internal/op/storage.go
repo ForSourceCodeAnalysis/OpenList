@@ -15,7 +15,6 @@ import (
 	"github.com/OpenListTeam/OpenList/v4/internal/model"
 	"github.com/OpenListTeam/OpenList/v4/pkg/generic_sync"
 	"github.com/OpenListTeam/OpenList/v4/pkg/utils"
-	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
@@ -356,6 +355,40 @@ func getStoragesByPath(path string) []driver.Driver {
 // for example, there are: /a/b,/a/c,/a/d/e,/a/b.balance1,/av
 // GetStorageVirtualFilesByPath(/a) => b,c,d
 func GetStorageVirtualFilesByPath(prefix string) []model.Obj {
+	return getStorageVirtualFilesByPath(prefix, func(_ driver.Driver, obj model.Obj) model.Obj {
+		return obj
+	})
+}
+
+func GetStorageVirtualFilesWithDetailsByPath(ctx context.Context, prefix string, hideDetails ...bool) []model.Obj {
+	if utils.IsBool(hideDetails...) {
+		return GetStorageVirtualFilesByPath(prefix)
+	}
+	return getStorageVirtualFilesByPath(prefix, func(d driver.Driver, obj model.Obj) model.Obj {
+		ret := &model.ObjStorageDetails{
+			Obj: obj,
+			StorageDetailsWithName: model.StorageDetailsWithName{
+				StorageDetails: nil,
+				DriverName:     d.Config().Name,
+			},
+		}
+		storage, ok := d.(driver.WithDetails)
+		if !ok {
+			return ret
+		}
+		details, err := storage.GetDetails(ctx)
+		if err != nil {
+			if !errors.Is(err, errs.NotImplement) {
+				log.Errorf("failed get %s storage details: %+v", d.GetStorage().MountPath, err)
+			}
+			return ret
+		}
+		ret.StorageDetails = details
+		return ret
+	})
+}
+
+func getStorageVirtualFilesByPath(prefix string, rootCallback func(driver.Driver, model.Obj) model.Obj) []model.Obj {
 	files := make([]model.Obj, 0)
 	storages := storagesMap.Values()
 	// 存储排序
@@ -367,9 +400,7 @@ func GetStorageVirtualFilesByPath(prefix string) []model.Obj {
 	})
 
 	prefix = utils.FixAndCleanPath(prefix)
-	set := mapset.NewSet[string]() //使用set可以自动去重
-	//如果请求的路径是"/"，下面的逻辑可以获取所有的挂载目录，亦即最顶层的目录
-
+	set := make(map[string]int)
 	for _, v := range storages {
 		//过滤掉负载均衡盘
 		mountPath := utils.GetActualMountPath(v.GetStorage().MountPath)
@@ -388,20 +419,23 @@ func GetStorageVirtualFilesByPath(prefix string) []model.Obj {
 		if len(prefix) >= len(mountPath) || !utils.IsSubPath(prefix, mountPath) {
 			continue
 		}
-		// 根据上面的过滤条件，走到这里，prefix是/union/123pan， mountPath是/union/123pan/local
-		// 下面的执行逻辑是
-		// 1. /union/123pan/local去除前缀/union/123pan/
-		// 2. 把 local 按 "/"最多分割成两份（这里举的例子只有一份，但是可以有更深层的目录）
-		// 3. 得到的name就是local目录名称
-		// 4. 后续会把local加到123pan api获取的列表中
-		name := strings.SplitN(strings.TrimPrefix(mountPath[len(prefix):], "/"), "/", 2)[0]
-		if set.Add(name) {
-			files = append(files, &model.Object{
-				Name:     name,
+		names := strings.SplitN(strings.TrimPrefix(mountPath[len(prefix):], "/"), "/", 2)
+		idx, ok := set[names[0]]
+		if !ok {
+			set[names[0]] = len(files)
+			obj := &model.Object{
+				Name:     names[0],
 				Size:     0,
 				Modified: v.GetStorage().Modified,
 				IsFolder: true,
-			})
+			}
+			if len(names) == 1 {
+				files = append(files, rootCallback(v, obj))
+			} else {
+				files = append(files, obj)
+			}
+		} else if len(names) == 1 {
+			files[idx] = rootCallback(v, files[idx])
 		}
 	}
 	return files

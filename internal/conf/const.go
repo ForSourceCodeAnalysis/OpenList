@@ -19,9 +19,10 @@ const (
 	FilingNumber = "filing_number"
 	FilingUrl    = "filing_url"
 
-	Logo      = "logo" // multi-lines text, L1: light, EOL: dark
-	Favicon   = "favicon"
-	MainColor = "main_color"
+	Logo               = "logo" // multi-lines text, L1: light, EOL: dark
+	Favicon            = "favicon"
+	MainColor          = "main_color"
+	HideStorageDetails = "hide_storage_details"
 
 	// preview
 	TextTypes                = "text_types"

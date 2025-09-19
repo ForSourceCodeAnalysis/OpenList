@@ -2,15 +2,12 @@ package handles
 
 import (
 	"context"
-	"errors"
 	"strconv"
 	"sync"
-	"time"
 
 	"github.com/OpenListTeam/OpenList/v4/internal/conf"
 	"github.com/OpenListTeam/OpenList/v4/internal/db"
 	"github.com/OpenListTeam/OpenList/v4/internal/driver"
-	"github.com/OpenListTeam/OpenList/v4/internal/errs"
 	"github.com/OpenListTeam/OpenList/v4/internal/model"
 	"github.com/OpenListTeam/OpenList/v4/internal/op"
 	"github.com/OpenListTeam/OpenList/v4/internal/setting"
@@ -39,20 +36,16 @@ func makeStorageResp(c *gin.Context, storages []model.Storage) []*StorageResp {
 		if err != nil {
 			continue
 		}
-		_, ok := d.(driver.WithDetails)
+		wd, ok := d.(driver.WithDetails)
 		if !ok {
 			continue
 		}
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			ctx, cancel := context.WithTimeout(c, time.Second*3)
-			defer cancel()
-			details, err := op.GetStorageDetails(ctx, d)
+			details, err := wd.GetDetails(c)
 			if err != nil {
-				if !errors.Is(err, errs.NotImplement) {
-					log.Errorf("failed get %s details: %+v", s.MountPath, err)
-				}
+				log.Errorf("failed get %s details: %+v", s.MountPath, err)
 				return
 			}
 			ret[i].MountDetails = details

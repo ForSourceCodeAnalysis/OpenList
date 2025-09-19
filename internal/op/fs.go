@@ -190,6 +190,9 @@ func Get(ctx context.Context, storage driver.Driver, path string) (model.Obj, er
 		if err == nil {
 			return model.WrapObjName(obj), nil
 		}
+		if !errs.IsNotImplement(err) {
+			return nil, errors.WithMessage(err, "failed to get obj")
+		}
 	}
 
 	// is root folder
@@ -334,11 +337,8 @@ func Link(ctx context.Context, storage driver.Driver, path string, args model.Li
 		return nil
 	})
 	link, err, _ := linkG.Do(key, fn)
-	if err == nil && !link.AcquireReference() {
+	for err == nil && !link.AcquireReference() {
 		link, err, _ = linkG.Do(key, fn)
-		if err == nil {
-			link.AcquireReference()
-		}
 	}
 
 	if err == errLinkMFileCache {

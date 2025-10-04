@@ -4,16 +4,13 @@ import (
 	"context"
 	"crypto/md5"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"io"
-	"mime/multipart"
 	"net/url"
 	"os"
 	stdpath "path"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/OpenListTeam/OpenList/v4/drivers/base"
@@ -21,8 +18,6 @@ import (
 	"github.com/OpenListTeam/OpenList/v4/internal/driver"
 	"github.com/OpenListTeam/OpenList/v4/internal/errs"
 	"github.com/OpenListTeam/OpenList/v4/internal/model"
-	"github.com/OpenListTeam/OpenList/v4/internal/model/reqres"
-	"github.com/OpenListTeam/OpenList/v4/internal/model/tables"
 	"github.com/OpenListTeam/OpenList/v4/pkg/errgroup"
 	"github.com/OpenListTeam/OpenList/v4/pkg/utils"
 	"github.com/avast/retry-go"
@@ -249,7 +244,7 @@ func (d *BaiduNetdisk) Put(ctx context.Context, dstDir model.Obj, stream model.F
 		lastBlockSize = sliceSize
 	}
 
-	//cal md5 for first 256k data
+	// cal md5 for first 256k data
 	const SliceSize int64 = 256 * utils.KB
 	// cal md5
 	blockList := make([]string, 0, count)
@@ -321,7 +316,7 @@ func (d *BaiduNetdisk) Put(ctx context.Context, dstDir model.Obj, stream model.F
 		}
 		log.Debugf("%+v", precreateResp)
 		if precreateResp.ReturnType == 2 {
-			//rapid upload, since got md5 match from baidu server
+			// rapid upload, since got md5 match from baidu server
 			// 修复时间，具体原因见 Put 方法注释的 **注意**
 			precreateResp.File.Ctime = ctime
 			precreateResp.File.Mtime = mtime
@@ -402,62 +397,12 @@ func (d *BaiduNetdisk) uploadSlice(ctx context.Context, params map[string]string
 	return nil
 }
 
-// SliceUpload 上传分片
-func (d *BaiduNetdisk) SliceUpload(c context.Context, req *tables.SliceUpload, sliceno uint, fd multipart.File) error {
-	fp := filepath.Join(req.DstPath, req.Name)
-	if sliceno == 0 { //第一个分片需要先执行预上传
-		rtype := 1
-		if req.Overwrite {
-			rtype = 3
-		}
-		precreateResp, err := d.precreate(&PrecreateReq{
-			Path:       fp,
-			Size:       req.Size,
-			Isdir:      0,
-			BlockList:  strings.Split(req.SliceHash, ","),
-			Autoinit:   1,
-			Rtype:      rtype,
-			ContentMd5: req.HashMd5,
-			SliceMd5:   req.HashMd5256KB,
-		})
-		if err != nil {
-			return err
-		}
-		req.PreupID = precreateResp.Uploadid
-	}
-	err := d.uploadSlice(c, map[string]string{
-		"method":       "upload",
-		"access_token": d.AccessToken,
-		"type":         "tmpfile",
-		"path":         fp,
-		"uploadid":     req.PreupID,
-		"partseq":      strconv.Itoa(int(sliceno)),
-	}, req.Name, fd)
-	return err
-
-}
-
-// Preup 预上传(自定以接口，为了适配自定义的分片上传)
-func (d *BaiduNetdisk) Preup(ctx context.Context, srcobj model.Obj, req *reqres.PreupReq) (*model.PreupInfo, error) {
-	return &model.PreupInfo{
-		SliceSize: d.getSliceSize(req.Size),
-	}, nil
-}
-
-// UploadSliceComplete 分片上传完成
-func (d *BaiduNetdisk) UploadSliceComplete(ctx context.Context, su *tables.SliceUpload) error {
-	fp := filepath.Join(su.DstPath, su.Name)
-	rsp := &SliceUpCompleteResp{}
-	t := time.Now().Unix()
-	sh, err := json.Marshal(strings.Split(su.SliceHash, ","))
+func (d *BaiduNetdisk) GetDetails(ctx context.Context) (*model.StorageDetails, error) {
+	du, err := d.quota(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	b, err := d.create(fp, int64(su.Size), 0, su.PreupID, string(sh), rsp, t, t)
-	if err != nil {
-		log.Error(err, rsp, string(b))
-	}
-	return err
+	return &model.StorageDetails{DiskUsage: *du}, nil
 }
 
 var _ driver.Driver = (*BaiduNetdisk)(nil)

@@ -18,7 +18,6 @@ import (
 	"github.com/OpenListTeam/OpenList/v4/internal/driver"
 	"github.com/OpenListTeam/OpenList/v4/internal/errs"
 	"github.com/OpenListTeam/OpenList/v4/internal/model"
-	"github.com/OpenListTeam/OpenList/v4/internal/model/tables"
 	"github.com/OpenListTeam/OpenList/v4/internal/sign"
 	"github.com/OpenListTeam/OpenList/v4/internal/stream"
 	"github.com/OpenListTeam/OpenList/v4/pkg/utils"
@@ -436,14 +435,6 @@ func (d *Local) Put(ctx context.Context, dstDir model.Obj, stream model.FileStre
 	return nil
 }
 
-// UploadSliceComplete 分片上传完成
-func (d *Local) UploadSliceComplete(ctx context.Context, su *tables.SliceUpload) error {
-	f, err := os.Stat(su.TmpFile)
-	if err != nil {
-		return err
-	}
-	return os.Rename(su.TmpFile, filepath.Join(su.DstPath, f.Name()))
-}
 func (d *Local) GetDetails(ctx context.Context) (*model.StorageDetails, error) {
 	du, err := getDiskUsage(d.RootFolderPath)
 	if err != nil {

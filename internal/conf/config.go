@@ -27,14 +27,12 @@ type Database struct {
 	DSN         string `json:"dsn" env:"DSN"`
 }
 
-// Meilisearch meilisearch 配置
 type Meilisearch struct {
 	Host   string `json:"host" env:"HOST"`
 	APIKey string `json:"api_key" env:"API_KEY"`
 	Index  string `json:"index" env:"INDEX"`
 }
 
-// Scheme 服务配置
 type Scheme struct {
 	Address      string `json:"address" env:"ADDR"`
 	HttpPort     int    `json:"http_port" env:"HTTP_PORT"`
@@ -47,7 +45,6 @@ type Scheme struct {
 	EnableH2c    bool   `json:"enable_h2c" env:"ENABLE_H2C"`
 }
 
-// LogConfig 日志配置
 type LogConfig struct {
 	Enable     bool            `json:"enable" env:"ENABLE"`
 	Name       string          `json:"name" env:"NAME"`
@@ -69,14 +66,12 @@ type Filter struct {
 	Method string `json:"method"`
 }
 
-// TaskConfig 单任务配置
 type TaskConfig struct {
 	Workers        int  `json:"workers" env:"WORKERS"`
 	MaxRetry       int  `json:"max_retry" env:"MAX_RETRY"`
 	TaskPersistant bool `json:"task_persistant" env:"TASK_PERSISTANT"`
 }
 
-// TasksConfig 任务集配置
 type TasksConfig struct {
 	Download           TaskConfig `json:"download" envPrefix:"DOWNLOAD_"`
 	Transfer           TaskConfig `json:"transfer" envPrefix:"TRANSFER_"`
@@ -88,21 +83,18 @@ type TasksConfig struct {
 	AllowRetryCanceled bool       `json:"allow_retry_canceled" env:"ALLOW_RETRY_CANCELED"`
 }
 
-// Cors 跨域配置
 type Cors struct {
 	AllowOrigins []string `json:"allow_origins" env:"ALLOW_ORIGINS"`
 	AllowMethods []string `json:"allow_methods" env:"ALLOW_METHODS"`
 	AllowHeaders []string `json:"allow_headers" env:"ALLOW_HEADERS"`
 }
 
-// S3 存储配置
 type S3 struct {
 	Enable bool `json:"enable" env:"ENABLE"`
 	Port   int  `json:"port" env:"PORT"`
 	SSL    bool `json:"ssl" env:"SSL"`
 }
 
-// FTP 服务配置
 type FTP struct {
 	Enable                  bool   `json:"enable" env:"ENABLE"`
 	Listen                  string `json:"listen" env:"LISTEN"`
@@ -116,13 +108,11 @@ type FTP struct {
 	EnablePasvConnIPCheck   bool   `json:"enable_pasv_conn_ip_check" env:"ENABLE_PASV_CONN_IP_CHECK"`
 }
 
-// SFTP 服务配置
 type SFTP struct {
 	Enable bool   `json:"enable" env:"ENABLE"`
 	Listen string `json:"listen" env:"LISTEN"`
 }
 
-// Config 配置
 type Config struct {
 	Force                 bool        `json:"force" env:"FORCE"`
 	SiteURL               string      `json:"site_url" env:"SITE_URL"`

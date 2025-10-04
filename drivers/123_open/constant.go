@@ -1,4 +1,4 @@
-package open123
+package _123_open
 
 // 参考： https://123yunpan.yuque.com/org-wiki-123yunpan-muaork/cr6ced/ppsuasz6rpioqbyt
 // 官方对接口有QPS限制，但是实现起来很麻烦，所以这里不做限制，接口如果返回了429（请求太频繁）错误，则暂停1秒再请求

@@ -1,8 +1,6 @@
-package open123
+package _123_open
 
 import (
-	"time"
-
 	"github.com/OpenListTeam/OpenList/v4/internal/driver"
 	"github.com/OpenListTeam/OpenList/v4/internal/op"
 )
@@ -18,8 +16,6 @@ type Addition struct {
 	//  直接写入AccessToken
 	AccessToken string `json:"AccessToken" required:"false"`
 
-	ExpiredAt time.Time `json:"ExpiredAt" ignore:"true"`
-
 	//  用户名+密码方式登录的AccessToken可以兼容
 	//Username string `json:"username" required:"false"`
 	//Password string `json:"password" required:"false"`
@@ -28,7 +24,7 @@ type Addition struct {
 	UploadThread int `json:"UploadThread" type:"number" default:"3" help:"the threads of upload"`
 
 	//  使用直链
-	DirectLink              bool   `json:"DirectLink" type:"boolean" default:"false" required:"false" help:"use direct link when download file"`
+	DirectLink              bool   `json:"DirectLink" type:"bool" default:"false" required:"false" help:"use direct link when download file"`
 	DirectLinkPrivateKey    string `json:"DirectLinkPrivateKey" required:"false" help:"private key for direct link, if URL authentication is enabled"`
 	DirectLinkValidDuration int64  `json:"DirectLinkValidDuration" type:"number" default:"30" required:"false" help:"minutes, if URL authentication is enabled"`
 

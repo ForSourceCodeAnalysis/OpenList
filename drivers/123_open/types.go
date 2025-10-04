@@ -1,8 +1,6 @@
-package open123
+package _123_open
 
 import (
-	"io"
-	"mime/multipart"
 	"strconv"
 	"time"
 
@@ -10,7 +8,39 @@ import (
 	"github.com/OpenListTeam/OpenList/v4/pkg/utils"
 )
 
-// File 文件属性
+type ApiInfo struct {
+	url   string
+	qps   int
+	token chan struct{}
+}
+
+func (a *ApiInfo) Require() {
+	if a.qps > 0 {
+		a.token <- struct{}{}
+	}
+}
+func (a *ApiInfo) Release() {
+	if a.qps > 0 {
+		time.AfterFunc(time.Second, func() {
+			<-a.token
+		})
+	}
+}
+func (a *ApiInfo) SetQPS(qps int) {
+	a.qps = qps
+	a.token = make(chan struct{}, qps)
+}
+func (a *ApiInfo) NowLen() int {
+	return len(a.token)
+}
+func InitApiInfo(url string, qps int) *ApiInfo {
+	return &ApiInfo{
+		url:   url,
+		qps:   qps,
+		token: make(chan struct{}, qps),
+	}
+}
+
 type File struct {
 	FileName     string `json:"filename"`
 	Size         int64  `json:"size"`
@@ -78,219 +108,21 @@ type BaseResp struct {
 	XTraceID string `json:"x-traceID"`
 }
 
-func (r BaseResp) GetCode() int {
-	return r.Code
-}
-func (r BaseResp) GetMessage() string {
-	return r.Message
-}
-
-type IOpen123Resp interface {
-	GetCode() int
-	GetMessage() string
-}
-
 type AccessTokenResp struct {
 	BaseResp
-	Data AccessTokenInfo `json:"data"`
-}
-type AccessTokenInfo struct {
-	AccessToken string    `json:"accessToken"`
-	ExpiredAt   time.Time `json:"expiredAt"`
+	Data struct {
+		AccessToken string `json:"accessToken"`
+		ExpiredAt   string `json:"expiredAt"`
+	} `json:"data"`
 }
 
 type RefreshTokenResp struct {
-	BaseResp
-	Data RefreshTokenInfo `json:"data"`
-}
-type RefreshTokenInfo struct {
 	AccessToken  string `json:"access_token"`
 	ExpiresIn    int    `json:"expires_in"`
 	RefreshToken string `json:"refresh_token"`
 	Scope        string `json:"scope"`
 	TokenType    string `json:"token_type"`
 }
-
-type UserInfoResp struct {
-	BaseResp
-	Data UserInfo `json:"data"`
-}
-type UserInfo struct {
-	UID            int64  `json:"uid"`
-	Username       string `json:"username"`
-	DisplayName    string `json:"displayName"`
-	HeadImage      string `json:"headImage"`
-	Passport       string `json:"passport"`
-	Mail           string `json:"mail"`
-	SpaceUsed      int64  `json:"spaceUsed"`
-	SpacePermanent int64  `json:"spacePermanent"`
-	SpaceTemp      int64  `json:"spaceTemp"`
-	SpaceTempExpr  string `json:"spaceTempExpr"`
-	Vip            bool   `json:"vip"`
-	DirectTraffic  int64  `json:"directTraffic"`
-	IsHideUID      bool   `json:"isHideUID"`
-}
-
-type FileListResp struct {
-	BaseResp
-	Data FileListInfo `json:"data"`
-}
-
-type FileListInfo struct {
-	LastFileId int64  `json:"lastFileId"`
-	FileList   []File `json:"fileList"`
-}
-
-type DownloadResp struct {
-	BaseResp
-	Data DownloadInfo `json:"data"`
-}
-
-type DownloadInfo struct {
-	DownloadUrl string `json:"downloadUrl"`
-}
-
-type UploadUrlResp struct {
-	BaseResp
-	Data struct {
-		PresignedURL string `json:"presignedURL"`
-	}
-}
-
-type UploadCompleteResp struct {
-	BaseResp
-	Data struct {
-		Async     bool  `json:"async"`
-		Completed bool  `json:"completed"`
-		FileID    int64 `json:"fileID"`
-	} `json:"data"`
-}
-
-type UploadAsyncResp struct {
-	BaseResp
-	Data struct {
-		Completed bool  `json:"completed"`
-		FileID    int64 `json:"fileID"`
-	} `json:"data"`
-}
-
-type UploadResp struct {
-	BaseResp
-	Data struct {
-		AccessKeyId     string `json:"AccessKeyId"`
-		Bucket          string `json:"Bucket"`
-		Key             string `json:"Key"`
-		SecretAccessKey string `json:"SecretAccessKey"`
-		SessionToken    string `json:"SessionToken"`
-		FileId          int64  `json:"FileId"`
-		Reuse           bool   `json:"Reuse"`
-		EndPoint        string `json:"EndPoint"`
-		StorageNode     string `json:"StorageNode"`
-		UploadId        string `json:"UploadId"`
-	} `json:"data"`
-}
-
-// GetSliceSize 获取分片大小
-func (p *PreupInfo) GetSliceSize() int64 {
-	return p.SliceSize
-}
-
-func (f File) CreateTime() time.Time {
-	// 返回的时间没有时区信息，默认 UTC+8
-	loc := time.FixedZone("UTC+8", 8*60*60)
-	parsedTime, err := time.ParseInLocation("2006-01-02 15:04:05", f.CreateAt, loc)
-	if err != nil {
-		return time.Now()
-	}
-	return parsedTime
-}
-
-func (f File) ModTime() time.Time {
-	// 返回的时间没有时区信息，默认 UTC+8
-	loc := time.FixedZone("UTC+8", 8*60*60)
-	parsedTime, err := time.ParseInLocation("2006-01-02 15:04:05", f.UpdateAt, loc)
-	if err != nil {
-		return time.Now()
-	}
-	return parsedTime
-}
-
-// IsRapidUpload 是否是秒传
-func (p *PreupInfo) IsRapidUpload() bool {
-	return p.Reuse
-}
-
-// GetBlockList 获取需要上传的分片列表
-func (p *PreupInfo) GetBlockList() []int {
-	return p.BlockList
-}
-
-// // GetUploadServer 获取上传服务器
-// func (p *PreupInfo) GetUploadServer() string {
-// 	return p.Servers[0]
-// }
-
-// SliceUploadCache 分片上传缓存信息
-type SliceUploadCache struct {
-	Filename          string   `json:"filename"`
-	Size              int64    `json:"size"`
-	Hash              string   `json:"hash"`
-	UploadServer      string   `json:"upload_server"`
-	PreupID           string   `json:"preup_id"`
-	SliceSize         int64    `json:"slice_size"`
-	UploadedBlockList []int    `json:"uploaded_block_list"` //已上传分片列表
-	SliceHash         []string `json:"slice_hash"`          //分片hash
-}
-
-// type UploadCreateResp struct {
-// 	BaseResp
-// 	Data struct {
-// 		FileID      int64  `json:"fileID"`
-// 		PreuploadID string `json:"preuploadID"`
-// 		Reuse       bool   `json:"reuse"`
-// 		SliceSize   int64  `json:"sliceSize"`
-// 	} `json:"data"`
-// }
-
-// type UploadUrlResp struct {
-// 	BaseResp
-// 	Data struct {
-// 		PresignedURL string `json:"presignedURL"`
-// 	}
-// }
-
-// type UploadCompleteResp struct {
-// 	BaseResp
-// 	Data struct {
-// 		Async     bool  `json:"async"`
-// 		Completed bool  `json:"completed"`
-// 		FileID    int64 `json:"fileID"`
-// 	} `json:"data"`
-// }
-
-// type UploadAsyncResp struct {
-// 	BaseResp
-// 	Data struct {
-// 		Completed bool  `json:"completed"`
-// 		FileID    int64 `json:"fileID"`
-// 	} `json:"data"`
-// }
-
-// type UploadResp struct {
-// 	BaseResp
-// 	Data struct {
-// 		AccessKeyId     string `json:"AccessKeyId"`
-// 		Bucket          string `json:"Bucket"`
-// 		Key             string `json:"Key"`
-// 		SecretAccessKey string `json:"SecretAccessKey"`
-// 		SessionToken    string `json:"SessionToken"`
-// 		FileId          int64  `json:"FileId"`
-// 		Reuse           bool   `json:"Reuse"`
-// 		EndPoint        string `json:"EndPoint"`
-// 		StorageNode     string `json:"StorageNode"`
-// 		UploadId        string `json:"UploadId"`
-// 	} `json:"data"`
-// }
 
 type UserInfoResp struct {
 	BaseResp
@@ -352,114 +184,4 @@ type UploadCompleteResp struct {
 		Completed bool  `json:"completed"`
 		FileID    int64 `json:"fileID"`
 	} `json:"data"`
-}
-
-//	type UserInfoResp struct {
-//		BaseResp
-//		Data struct {
-//			UID            int64  `json:"uid"`
-//			Username       string `json:"username"`
-//			DisplayName    string `json:"displayName"`
-//			HeadImage      string `json:"headImage"`
-//			Passport       string `json:"passport"`
-//			Mail           string `json:"mail"`
-//			SpaceUsed      int64  `json:"spaceUsed"`
-//			SpacePermanent int64  `json:"spacePermanent"`
-//			SpaceTemp      int64  `json:"spaceTemp"`
-//			SpaceTempExpr  string `json:"spaceTempExpr"`
-//			Vip            bool   `json:"vip"`
-//			DirectTraffic  int64  `json:"directTraffic"`
-//			IsHideUID      bool   `json:"isHideUID"`
-//		} `json:"data"`
-//	}
-//
-// UploadCreateReq 预上传请求
-// parentFileID	number	必填	父目录id，上传到根目录时填写 0
-// filename	string	必填	文件名要小于255个字符且不能包含以下任何字符："\/:*?|><。（注：不能重名）
-// containDir 为 true 时，传入路径+文件名，例如：/你好/123/测试文件.mp4
-// etag	string	必填	文件md5
-// size	number	必填	文件大小，单位为 byte 字节
-// duplicate	number	非必填	当有相同文件名时，文件处理策略（1保留两者，新文件名将自动添加后缀，2覆盖原文件）
-// containDir	bool	非必填	上传文件是否包含路径，默认false
-type UploadCreateReq struct {
-	ParentFileID uint64 `json:"parentFileID"`
-	FileName     string `json:"filename"`
-	Etag         string `json:"etag"`
-	Size         int64  `json:"size"`
-	Duplicate    int    `json:"duplicate"`
-	ContainDir   bool   `json:"containDir"`
-}
-
-type UploadCreateResp struct {
-	BaseResp
-	Data UploadCreateData `json:"data"`
-}
-
-// UploadCreateData 预上传响应
-// fileID	number	非必填	文件ID。当123云盘已有该文件,则会发生秒传。此时会将文件ID字段返回。唯一
-// preuploadID	string	必填	预上传ID(如果 reuse 为 true 时,该字段不存在)
-// reuse	boolean	必填	是否秒传，返回true时表示文件已上传成功
-// sliceSize	number	必填	分片大小，必须按此大小生成文件分片再上传
-// servers	array	必填	上传地址
-type UploadCreateData struct {
-	FileID      uint64   `json:"fileID"`
-	PreuploadID string   `json:"preuploadID"`
-	Reuse       bool     `json:"reuse"`
-	SliceSize   int64    `json:"sliceSize"`
-	Servers     []string `json:"servers"`
-}
-
-// UploadSliceReq 分片上传请求
-// preuploadID	string	必填	预上传ID
-// sliceNo	number	必填	分片序号，从1开始自增
-// sliceMD5	string	必填	当前分片md5
-// slice	file	必填	分片二进制流
-type UploadSliceReq struct {
-	Name        string         `json:"name"`
-	PreuploadID string         `json:"preuploadID"`
-	SliceNo     int            `json:"sliceNo"`
-	SliceMD5    string         `json:"sliceMD5"`
-	Slice       multipart.File `json:"slice"`
-	Server      string         `json:"server"`
-}
-
-type SliceUpCompleteResp struct {
-	SingleUploadResp
-}
-
-type GetUploadServerResp struct {
-	BaseResp
-	Data []string `json:"data"`
-}
-
-// SingleUploadReq 单文件上传请求
-// parentFileID	number	必填	父目录id，上传到根目录时填写 0
-// filename	string	必填	文件名要小于255个字符且不能包含以下任何字符："\/:*?|><。（注：不能重名）
-//
-//	containDir 为 true 时，传入路径+文件名，例如：/你好/123/测试文件.mp4
-//
-// etag	string	必填	文件md5
-// size	number	必填	文件大小，单位为 byte 字节
-// file	file	必填	文件二进制流
-// duplicate	number	非必填	当有相同文件名时，文件处理策略（1保留两者，新文件名将自动添加后缀，2覆盖原文件）
-// containDir	bool	非必填	上传文件是否包含路径，默认false
-type SingleUploadReq struct {
-	ParentFileID int64     `json:"parentFileID"`
-	FileName     string    `json:"filename"`
-	Etag         string    `json:"etag"`
-	Size         int64     `json:"size"`
-	File         io.Reader `json:"file"`
-	Duplicate    int       `json:"duplicate"`
-	ContainDir   bool      `json:"containDir"`
-}
-
-// SingleUploadResp 单文件上传响应
-type SingleUploadResp struct {
-	BaseResp
-	Data SingleUploadData `json:"data"`
-}
-
-type SingleUploadData struct {
-	FileID    int64 `json:"fileID"`
-	Completed bool  `json:"completed"`
 }

@@ -109,7 +109,6 @@ func Init(e *gin.Engine) {
 	if flags.Debug || flags.Dev {
 		debug(g.Group("/debug"))
 	}
-
 	static.Static(g, func(handlers ...gin.HandlerFunc) {
 		e.NoRoute(handlers...)
 	})

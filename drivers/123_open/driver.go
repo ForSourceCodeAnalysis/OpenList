@@ -97,7 +97,7 @@ func (d *Open123) Link(ctx context.Context, file model.Obj, args model.LinkArgs)
 			}, nil
 		}
 
-		uid, err := d.getUID()
+		uid, err := d.getUID(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -121,8 +121,7 @@ func (d *Open123) Link(ctx context.Context, file model.Obj, args model.LinkArgs)
 		return nil, err
 	}
 
-	link := model.Link{URL: res.DownloadUrl}
-	return &link, nil
+	return &model.Link{URL: res.Data.DownloadUrl}, nil
 }
 
 func (d *Open123) MakeDir(ctx context.Context, parentDir model.Obj, dirName string) error {
@@ -309,4 +308,22 @@ func (d *Open123) GetDetails(ctx context.Context) (*model.StorageDetails, error)
 	}, nil
 }
 
-var _ driver.Driver = (*Open123)(nil)
+func (d *Open123) GetDetails(ctx context.Context) (*model.StorageDetails, error) {
+	userInfo, err := d.getUserInfo(ctx)
+	if err != nil {
+		return nil, err
+	}
+	total := userInfo.Data.SpacePermanent + userInfo.Data.SpaceTemp
+	free := total - userInfo.Data.SpaceUsed
+	return &model.StorageDetails{
+		DiskUsage: model.DiskUsage{
+			TotalSpace: total,
+			FreeSpace:  free,
+		},
+	}, nil
+}
+
+var (
+	_ driver.Driver    = (*Open123)(nil)
+	_ driver.PutResult = (*Open123)(nil)
+)

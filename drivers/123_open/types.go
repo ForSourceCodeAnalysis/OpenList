@@ -113,22 +113,21 @@ type RefreshTokenInfo struct {
 
 type UserInfoResp struct {
 	BaseResp
-	Data UserInfo `json:"data"`
-}
-type UserInfo struct {
-	UID            int64  `json:"uid"`
-	Username       string `json:"username"`
-	DisplayName    string `json:"displayName"`
-	HeadImage      string `json:"headImage"`
-	Passport       string `json:"passport"`
-	Mail           string `json:"mail"`
-	SpaceUsed      int64  `json:"spaceUsed"`
-	SpacePermanent int64  `json:"spacePermanent"`
-	SpaceTemp      int64  `json:"spaceTemp"`
-	SpaceTempExpr  string `json:"spaceTempExpr"`
-	Vip            bool   `json:"vip"`
-	DirectTraffic  int64  `json:"directTraffic"`
-	IsHideUID      bool   `json:"isHideUID"`
+	Data struct {
+		UID uint64 `json:"uid"`
+		// Username       string `json:"username"`
+		// DisplayName    string `json:"displayName"`
+		// HeadImage      string `json:"headImage"`
+		// Passport       string `json:"passport"`
+		// Mail           string `json:"mail"`
+		SpaceUsed      uint64 `json:"spaceUsed"`
+		SpacePermanent uint64 `json:"spacePermanent"`
+		SpaceTemp      uint64 `json:"spaceTemp"`
+		// SpaceTempExpr  int64  `json:"spaceTempExpr"`
+		// Vip            bool   `json:"vip"`
+		// DirectTraffic  int64  `json:"directTraffic"`
+		// IsHideUID      bool   `json:"isHideUID"`
+	} `json:"data"`
 }
 
 type FileListResp struct {
@@ -167,6 +166,14 @@ type UploadCreateReq struct {
 	ContainDir   bool   `json:"containDir"`
 }
 
+type DirectLinkResp struct {
+	BaseResp
+	Data struct {
+		URL string `json:"url"`
+	} `json:"data"`
+}
+
+// 创建文件V2返回
 type UploadCreateResp struct {
 	BaseResp
 	Data UploadCreateData `json:"data"`

@@ -1,43 +1,39 @@
 package open123
 
 import (
+	"context"
+	"crypto/md5"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/OpenListTeam/OpenList/v4/drivers/base"
 	"github.com/go-resty/resty/v2"
+	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 )
 
-func (d *Open123) Request(url, method string, callback base.ReqCallback, resp IOpen123Resp) ([]byte, error) {
-	if d.ExpiredAt.Before(time.Now()) {
-		if err := d.flushAccessToken(); err != nil {
-			return nil, err
-		}
-	}
+var ( // 不同情况下获取的AccessTokenQPS限制不同 如下模块化易于拓展
+	Api = "https://open-api.123pan.com"
 
-	req := base.RestyClient.R()
-	req.SetHeaders(map[string]string{
-
-		"platform":     "open_platform",
-		"Content-Type": "application/json",
-	})
-
-	if callback != nil {
-		callback(req)
-	}
-	if resp == nil {
-		resp = &BaseResp{
-			Code: -1,
-		}
-	}
-
-	req.SetResult(resp)
-
-	log.Debugf("API: %s", url)
+	AccessToken    = InitApiInfo(Api+"/api/v1/access_token", 1)
+	RefreshToken   = InitApiInfo(Api+"/api/v1/oauth2/access_token", 1)
+	UserInfo       = InitApiInfo(Api+"/api/v1/user/info", 1)
+	FileList       = InitApiInfo(Api+"/api/v2/file/list", 3)
+	DownloadInfo   = InitApiInfo(Api+"/api/v1/file/download_info", 5)
+	DirectLink     = InitApiInfo(Api+"/api/v1/direct-link/url", 5)
+	Mkdir          = InitApiInfo(Api+"/upload/v1/file/mkdir", 2)
+	Move           = InitApiInfo(Api+"/api/v1/file/move", 1)
+	Rename         = InitApiInfo(Api+"/api/v1/file/name", 1)
+	Trash          = InitApiInfo(Api+"/api/v1/file/trash", 2)
+	UploadCreate   = InitApiInfo(Api+"/upload/v2/file/create", 2)
+	UploadComplete = InitApiInfo(Api+"/upload/v2/file/upload_complete", 0)
+)
 
 	retryToken := true
 
@@ -72,30 +68,39 @@ func (d *Open123) Request(url, method string, callback base.ReqCallback, resp IO
 			return res.Body(), errors.New(resp.GetMessage())
 		}
 	}
-	return nil, fmt.Errorf("request failed, url: %s, max retry count excceed ", url)
-
 }
 
 func (d *Open123) flushAccessToken() error {
-	// 第三方授权应用刷新token
-	if d.RefreshToken != "" {
-		r := &RefreshTokenResp{}
-		res, err := base.RestyClient.R().
-			SetHeaders(map[string]string{
-				"Platform":     "open_platform",
-				"Content-Type": "application/json",
-			}).
-			SetResult(r).
-			SetQueryParams(map[string]string{
-				"grant_type":    "refresh_token",
-				"client_id":     d.ClientID,
-				"client_secret": d.ClientSecret,
-				"refresh_token": d.RefreshToken,
-			}).
-			Post(baseURL + refreshTokenAPI)
-
-		if err != nil {
-			return err
+	if d.ClientID != "" {
+		if d.RefreshToken != "" {
+			var resp RefreshTokenResp
+			_, err := d.Request(RefreshToken, http.MethodPost, func(req *resty.Request) {
+				req.SetQueryParam("client_id", d.ClientID)
+				if d.ClientSecret != "" {
+					req.SetQueryParam("client_secret", d.ClientSecret)
+				}
+				req.SetQueryParam("grant_type", "refresh_token")
+				req.SetQueryParam("refresh_token", d.RefreshToken)
+			}, &resp)
+			if err != nil {
+				return err
+			}
+			d.AccessToken = resp.AccessToken
+			d.RefreshToken = resp.RefreshToken
+			op.MustSaveDriverStorage(d)
+		} else if d.ClientSecret != "" {
+			var resp AccessTokenResp
+			_, err := d.Request(AccessToken, http.MethodPost, func(req *resty.Request) {
+				req.SetBody(base.Json{
+					"clientID":     d.ClientID,
+					"clientSecret": d.ClientSecret,
+				})
+			}, &resp)
+			if err != nil {
+				return err
+			}
+			d.AccessToken = resp.Data.AccessToken
+			op.MustSaveDriverStorage(d)
 		}
 		if res.StatusCode() != http.StatusOK {
 			return fmt.Errorf("refresh token failed: %s", res.String())
@@ -141,10 +146,10 @@ func (d *Open123) flushAccessToken() error {
 	return nil
 }
 
-func (d *Open123) getFiles(parentFileId int64, limit int, lastFileId int64) (*FileListInfo, error) {
-	resp := &FileListResp{}
+func (d *Open123) SignURL(originURL, privateKey string, uid uint64, validDuration time.Duration) (newURL string, err error) {
+	// 生成Unix时间戳
+	ts := time.Now().Add(validDuration).Unix()
 
-	_, err := d.Request(baseURL+fileListAPI, http.MethodGet, func(req *resty.Request) {
 	// 生成随机数（建议使用UUID，不能包含中划线（-））
 	rand := strings.ReplaceAll(uuid.New().String(), "-", "")
 
@@ -168,21 +173,23 @@ func (d *Open123) getFiles(parentFileId int64, limit int, lastFileId int64) (*Fi
 	return objURL.String(), nil
 }
 
-func (d *Open123) getUserInfo() (*UserInfoResp, error) {
+func (d *Open123) getUserInfo(ctx context.Context) (*UserInfoResp, error) {
 	var resp UserInfoResp
 
-	if _, err := d.Request(UserInfo, http.MethodGet, nil, &resp); err != nil {
+	if _, err := d.Request(UserInfo, http.MethodGet, func(req *resty.Request) {
+		req.SetContext(ctx)
+	}, &resp); err != nil {
 		return nil, err
 	}
 
 	return &resp, nil
 }
 
-func (d *Open123) getUID() (uint64, error) {
+func (d *Open123) getUID(ctx context.Context) (uint64, error) {
 	if d.UID != 0 {
 		return d.UID, nil
 	}
-	resp, err := d.getUserInfo()
+	resp, err := d.getUserInfo(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -203,9 +210,12 @@ func (d *Open123) getFiles(parentFileId int64, limit int, lastFileId int64) (*Fi
 				"searchMode":   "",
 				"searchData":   "",
 			})
-	}, resp)
+	}, &resp)
+	if err != nil {
+		return nil, err
+	}
 
-	return &resp.Data, err
+	return &resp, nil
 }
 
 func (d *Open123) getDownloadInfo(fileID int64) (*DownloadInfo, error) {
@@ -218,6 +228,21 @@ func (d *Open123) getDownloadInfo(fileID int64) (*DownloadInfo, error) {
 	}, &resp)
 
 	return &resp.Data, err
+}
+
+func (d *Open123) getDirectLink(fileId int64) (*DirectLinkResp, error) {
+	var resp DirectLinkResp
+
+	_, err := d.Request(DirectLink, http.MethodGet, func(req *resty.Request) {
+		req.SetQueryParams(map[string]string{
+			"fileID": strconv.FormatInt(fileId, 10),
+		})
+	}, &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return &resp, nil
 }
 
 func (d *Open123) getDirectLink(fileId int64) (*DirectLinkResp, error) {

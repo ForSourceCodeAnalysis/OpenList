@@ -9,7 +9,6 @@ import (
 	"net/url"
 	"os"
 	stdpath "path"
-	"path/filepath"
 	"strconv"
 	"time"
 
@@ -38,14 +37,6 @@ func (d *BaiduNetdisk) Config() driver.Config {
 
 func (d *BaiduNetdisk) GetAddition() driver.Additional {
 	return &d.Addition
-}
-
-func (d *BaiduNetdisk) GetUploadInfo() *model.UploadInfo {
-	return &model.UploadInfo{
-		SliceHashNeed:    true,
-		HashMd5Need:      true,
-		HashMd5256KBNeed: true,
-	}
 }
 
 func (d *BaiduNetdisk) Init(ctx context.Context) error {
@@ -142,19 +133,6 @@ func (d *BaiduNetdisk) Rename(ctx context.Context, srcObj model.Obj, newName str
 	return nil, nil
 }
 
-func (d *BaiduNetdisk) BatchRename(ctx context.Context, obj model.Obj, renameObjs []model.RenameObj) error {
-	data := []base.Json{}
-	for _, ro := range renameObjs {
-		data = append(data, base.Json{
-			"path":    filepath.Join(obj.GetPath(), ro.SrcName),
-			"newname": ro.NewName,
-		})
-	}
-
-	_, err := d.manage("rename", data)
-	return err
-}
-
 func (d *BaiduNetdisk) Copy(ctx context.Context, srcObj, dstDir model.Obj) error {
 	data := []base.Json{
 		{
@@ -169,16 +147,6 @@ func (d *BaiduNetdisk) Copy(ctx context.Context, srcObj, dstDir model.Obj) error
 
 func (d *BaiduNetdisk) Remove(ctx context.Context, obj model.Obj) error {
 	data := []string{obj.GetPath()}
-	_, err := d.manage("delete", data)
-	return err
-}
-
-func (d *BaiduNetdisk) BatchRemove(ctx context.Context, srcObj model.Obj, objs []model.IDName) error {
-	data := []string{}
-	for _, obj := range objs {
-		data = append(data, filepath.Join(srcObj.GetPath(), obj.Name))
-	}
-
 	_, err := d.manage("delete", data)
 	return err
 }
@@ -378,7 +346,6 @@ func (d *BaiduNetdisk) Put(ctx context.Context, dstDir model.Obj, stream model.F
 	return fileToObj(newFile), nil
 }
 
-// uploadSlice 上传分片
 func (d *BaiduNetdisk) uploadSlice(ctx context.Context, params map[string]string, fileName string, file io.Reader) error {
 	res, err := base.RestyClient.R().
 		SetContext(ctx).

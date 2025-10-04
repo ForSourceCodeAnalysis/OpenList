@@ -178,7 +178,7 @@ type DownloadResp2 struct {
 
 type PrecreateResp struct {
 	Errno      int   `json:"errno"`
-	RequestID  int64 `json:"request_id"`
+	RequestId  int64 `json:"request_id"`
 	ReturnType int   `json:"return_type"`
 
 	// return_type=1

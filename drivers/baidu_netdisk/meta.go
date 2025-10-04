@@ -22,7 +22,6 @@ type Addition struct {
 	CustomUploadPartSize  int64  `json:"custom_upload_part_size" type:"number" default:"0" help:"0 for auto"`
 	LowBandwithUploadMode bool   `json:"low_bandwith_upload_mode" default:"false"`
 	OnlyListVideoFile     bool   `json:"only_list_video_file" default:"false"`
-	SliceSize             string `json:"slice_size" type:"select" default:"4MB" options:"4MB,16MB,32MB"`
 }
 
 var config = driver.Config{

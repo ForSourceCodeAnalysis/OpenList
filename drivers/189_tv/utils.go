@@ -350,44 +350,6 @@ func (y *Cloud189TV) keepAlive() {
 	}
 }
 
-// refreshSession 尝试使用现有的 AccessToken 刷新会话
-func (y *Cloud189TV) refreshSession() (err error) {
-	var erron RespErr
-	var tokenInfo AppSessionResp
-	reqb := y.client.R().SetQueryParams(clientSuffix())
-	reqb.SetResult(&tokenInfo).SetError(&erron)
-	// Signature
-	reqb.SetHeaders(y.AppKeySignatureHeader(ApiUrl+"/family/manage/loginFamilyMerge.action",
-		http.MethodGet))
-	reqb.SetQueryParam("e189AccessToken", y.Addition.AccessToken)
-	_, err = reqb.Execute(http.MethodGet, ApiUrl+"/family/manage/loginFamilyMerge.action")
-	if err != nil {
-		return
-	}
-
-	if erron.HasError() {
-		return &erron
-	}
-
-	y.tokenInfo = &tokenInfo
-	return nil
-}
-
-func (y *Cloud189TV) keepAlive() {
-	_, err := y.get(ApiUrl+"/keepUserSession.action", func(r *resty.Request) {
-		r.SetQueryParams(clientSuffix())
-	}, nil)
-	if err != nil {
-		utils.Log.Warnf("189tv: Failed to keep user session alive: %v", err)
-		// 如果keepAlive失败，尝试刷新session
-		if refreshErr := y.refreshSession(); refreshErr != nil {
-			utils.Log.Errorf("189tv: Failed to refresh session after keepAlive error: %v", refreshErr)
-		}
-	} else {
-		utils.Log.Debugf("189tv: User session kept alive successfully.")
-	}
-}
-
 func (y *Cloud189TV) RapidUpload(ctx context.Context, dstDir model.Obj, stream model.FileStreamer, isFamily bool, overwrite bool) (model.Obj, error) {
 	fileMd5 := stream.GetHash().GetHash(utils.MD5)
 	if len(fileMd5) < utils.MD5.Width {

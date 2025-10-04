@@ -229,21 +229,6 @@ func (d *Open123) GetDetails(ctx context.Context) (*model.StorageDetails, error)
 	}, nil
 }
 
-func (d *Open123) GetDetails(ctx context.Context) (*model.StorageDetails, error) {
-	userInfo, err := d.getUserInfo(ctx)
-	if err != nil {
-		return nil, err
-	}
-	total := userInfo.Data.SpacePermanent + userInfo.Data.SpaceTemp
-	free := total - userInfo.Data.SpaceUsed
-	return &model.StorageDetails{
-		DiskUsage: model.DiskUsage{
-			TotalSpace: total,
-			FreeSpace:  free,
-		},
-	}, nil
-}
-
 var (
 	_ driver.Driver    = (*Open123)(nil)
 	_ driver.PutResult = (*Open123)(nil)

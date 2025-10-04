@@ -1,6 +1,5 @@
 package driver
 
-// 这个定义完全没有任何实际用途，就是为了实现类似分组的功能
 type Additional interface{}
 
 type Select string

@@ -45,6 +45,7 @@ type Scheme struct {
 	UnixFile     string `json:"unix_file" env:"UNIX_FILE"`
 	UnixFilePerm string `json:"unix_file_perm" env:"UNIX_FILE_PERM"`
 	EnableH2c    bool   `json:"enable_h2c" env:"ENABLE_H2C"`
+	EnableH3     bool   `json:"enable_h3" env:"ENABLE_H3"`
 }
 
 // LogConfig 日志配置
@@ -149,6 +150,7 @@ type Config struct {
 	SFTP                  SFTP        `json:"sftp" envPrefix:"SFTP_"`
 	LastLaunchedVersion   string      `json:"last_launched_version"`
 	Redis                 RedisConf   `json:"redis" envPrefix:"REDIS_"`
+	ProxyAddress          string      `json:"proxy_address" env:"PROXY_ADDRESS"`
 }
 
 func DefaultConfig(dataDir string) *Config {
@@ -267,5 +269,6 @@ func DefaultConfig(dataDir string) *Config {
 			Listen: ":5222",
 		},
 		LastLaunchedVersion: "",
+		ProxyAddress:        "",
 	}
 }

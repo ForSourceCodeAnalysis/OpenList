@@ -47,11 +47,6 @@ type Getter interface {
 	Get(ctx context.Context, path string) (model.Obj, error)
 }
 
-type GetObjInfo interface {
-	// GetObjInfo get file info by path
-	GetObjInfo(ctx context.Context, path string) (model.Obj, error)
-}
-
 //type Writer interface {
 //	Mkdir
 //	Move
@@ -217,4 +212,18 @@ type WithDetails interface {
 
 type Reference interface {
 	InitReference(storage Driver) error
+}
+
+type LinkCacheModeResolver interface {
+	// ResolveLinkCacheMode returns the LinkCacheMode for the given path.
+	ResolveLinkCacheMode(path string) LinkCacheMode
+}
+
+type DirectUploader interface {
+	// GetDirectUploadTools returns available frontend-direct upload tools
+	GetDirectUploadTools() []string
+	// GetDirectUploadInfo returns the information needed for direct upload from client to storage
+	// actualPath is the path relative to the storage root (after removing mount path prefix)
+	// return errs.NotImplement if the driver does not support the given direct upload tool
+	GetDirectUploadInfo(ctx context.Context, tool string, dstDir model.Obj, fileName string, fileSize int64) (any, error)
 }

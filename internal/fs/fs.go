@@ -97,6 +97,14 @@ func Copy(ctx context.Context, srcObjPath, dstDirPath string, lazyCache ...bool)
 	return res, err
 }
 
+func Merge(ctx context.Context, srcObjPath, dstDirPath string, lazyCache ...bool) (task.TaskExtensionInfo, error) {
+	res, err := transfer(ctx, merge, srcObjPath, dstDirPath, lazyCache...)
+	if err != nil {
+		log.Errorf("failed merge %s to %s: %+v", srcObjPath, dstDirPath, err)
+	}
+	return res, err
+}
+
 func Rename(ctx context.Context, srcPath, dstName string, lazyCache ...bool) error {
 	err := rename(ctx, srcPath, dstName, lazyCache...)
 	if err != nil {
@@ -221,6 +229,14 @@ func GetStorage(path string, args *GetStoragesArgs) (driver.Driver, error) {
 		return nil, err
 	}
 	return storageDriver, nil
+}
+
+func GetStorageAndActualPath(path string) (driver.Driver, string, error) {
+	return op.GetStorageAndActualPath(path)
+}
+
+func GetByActualPath(ctx context.Context, storage driver.Driver, actualPath string) (model.Obj, error) {
+	return op.Get(ctx, storage, actualPath)
 }
 
 func Other(ctx context.Context, args model.FsOtherArgs) (interface{}, error) {
@@ -571,5 +587,12 @@ func SliceUpComplete(ctx context.Context, storage driver.Driver, uploadID uint) 
 		}, nil
 
 	}
+}
 
+func GetDirectUploadInfo(ctx context.Context, tool, path, dstName string, fileSize int64) (any, error) {
+	info, err := getDirectUploadInfo(ctx, tool, path, dstName, fileSize)
+	if err != nil {
+		log.Errorf("failed get %s direct upload info for %s(%d bytes): %+v", path, dstName, fileSize, err)
+	}
+	return info, err
 }

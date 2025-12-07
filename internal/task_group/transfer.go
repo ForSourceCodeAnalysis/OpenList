@@ -5,11 +5,14 @@ import (
 	"fmt"
 	"path"
 
+	"github.com/OpenListTeam/OpenList/v4/internal/conf"
 	"github.com/OpenListTeam/OpenList/v4/internal/driver"
 	"github.com/OpenListTeam/OpenList/v4/internal/model"
 	"github.com/OpenListTeam/OpenList/v4/internal/op"
+	"github.com/OpenListTeam/OpenList/v4/internal/setting"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/time/rate"
 )
 
 type SrcPathToRemove string
@@ -24,16 +27,34 @@ func RefreshAndRemove(dstPath string, payloads ...any) {
 		return
 	}
 	_, dstNeedRefresh := dstStorage.(driver.Put)
-	dstNeedRefresh = dstNeedRefresh && !dstStorage.Config().NoCache
 	if dstNeedRefresh {
-		op.DeleteCache(dstStorage, dstActualPath)
+		op.Cache.DeleteDirectory(dstStorage, dstActualPath)
+	}
+	dstNeedHandleHook := setting.GetBool(conf.HandleHookAfterWriting)
+	dstHandleHookLimit := setting.GetFloat(conf.HandleHookRateLimit, .0)
+	var listLimiter *rate.Limiter
+	if dstNeedRefresh && dstNeedHandleHook && dstHandleHookLimit > .0 {
+		listLimiter = rate.NewLimiter(rate.Limit(dstHandleHookLimit), 1)
 	}
 	var ctx context.Context
 	for _, payload := range payloads {
 		switch p := payload.(type) {
 		case DstPathToRefresh:
 			if dstNeedRefresh {
-				op.DeleteCache(dstStorage, string(p))
+				if dstNeedHandleHook {
+					if ctx == nil {
+						ctx = context.Background()
+					}
+					if listLimiter != nil {
+						_ = listLimiter.Wait(ctx)
+					}
+					_, e := op.List(ctx, dstStorage, string(p), model.ListArgs{Refresh: true})
+					if e != nil {
+						log.Errorf("failed handle objs update hook: %v", e)
+					}
+				} else {
+					op.Cache.DeleteDirectory(dstStorage, string(p))
+				}
 			}
 		case SrcPathToRemove:
 			if ctx == nil {
@@ -79,7 +100,7 @@ func verifyAndRemove(ctx context.Context, srcStorage, dstStorage driver.Driver, 
 	}
 
 	if refresh {
-		op.DeleteCache(dstStorage, dstObjPath)
+		op.Cache.DeleteDirectory(dstStorage, dstObjPath)
 	}
 	hasErr := false
 	for _, obj := range srcObjs {

@@ -9,6 +9,7 @@ import (
 
 	_115 "github.com/OpenListTeam/OpenList/v4/drivers/115"
 	_115_open "github.com/OpenListTeam/OpenList/v4/drivers/115_open"
+	_123_open "github.com/OpenListTeam/OpenList/v4/drivers/123_open"
 	"github.com/OpenListTeam/OpenList/v4/drivers/pikpak"
 	"github.com/OpenListTeam/OpenList/v4/drivers/thunder"
 	"github.com/OpenListTeam/OpenList/v4/drivers/thunder_browser"
@@ -102,6 +103,13 @@ func AddURL(ctx context.Context, args *AddURLArgs) (task.TaskExtensionInfo, erro
 			tempDir = args.DstDirPath
 		} else {
 			tempDir = filepath.Join(setting.GetStr(conf.Pan115OpenTempDir), uid)
+		}
+	case "123 Open":
+		if _, ok := storage.(*_123_open.Open123); ok && dstDirActualPath != "/" {
+			// directly offline downloading to the root path is not allowed via 123 open platform
+			tempDir = args.DstDirPath
+		} else {
+			tempDir = filepath.Join(setting.GetStr(conf.Pan123OpenTempDir), uid)
 		}
 	case "PikPak":
 		if _, ok := storage.(*pikpak.PikPak); ok {

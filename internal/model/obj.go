@@ -137,62 +137,55 @@ func WrapObjName(objs Obj) Obj {
 }
 
 func WrapObjsName(objs []Obj) {
-	for i := 0; i < len(objs); i++ {
+	for i := range objs {
 		objs[i] = &ObjWrapName{Name: utils.MappingName(objs[i].GetName()), Obj: objs[i]}
 	}
 }
 
-func UnwrapObj(obj Obj) Obj {
-	if unwrap, ok := obj.(ObjUnwrap); ok {
-		obj = unwrap.Unwrap()
+func UnwrapObjName(obj Obj) Obj {
+	if n, ok := obj.(*ObjWrapName); ok {
+		return n.Obj
 	}
 	return obj
 }
 
 func GetThumb(obj Obj) (thumb string, ok bool) {
-	if obj, ok := obj.(Thumb); ok {
-		return obj.Thumb(), true
+	for {
+		switch o := obj.(type) {
+		case Thumb:
+			return o.Thumb(), true
+		case ObjUnwrap:
+			obj = o.Unwrap()
+		default:
+			return
+		}
 	}
-	if unwrap, ok := obj.(ObjUnwrap); ok {
-		return GetThumb(unwrap.Unwrap())
-	}
-	return thumb, false
 }
 
 func GetUrl(obj Obj) (url string, ok bool) {
-	if obj, ok := obj.(URL); ok {
-		return obj.URL(), true
+	for {
+		switch o := obj.(type) {
+		case URL:
+			return o.URL(), true
+		case ObjUnwrap:
+			obj = o.Unwrap()
+		default:
+			return
+		}
 	}
-	if unwrap, ok := obj.(ObjUnwrap); ok {
-		return GetUrl(unwrap.Unwrap())
-	}
-	return url, false
 }
 
 func GetProvider(obj Obj) (string, bool) {
-	if obj, ok := obj.(ObjWithProvider); ok {
-		return obj.GetProvider(), true
+	for {
+		switch o := obj.(type) {
+		case ObjWithProvider:
+			return o.GetProvider(), true
+		case ObjUnwrap:
+			obj = o.Unwrap()
+		default:
+			return "unknown", false
+		}
 	}
-	if unwrap, ok := obj.(ObjUnwrap); ok {
-		return GetProvider(unwrap.Unwrap())
-	}
-	return "unknown", false
-}
-
-func GetRawObject(obj Obj) *Object {
-	switch v := obj.(type) {
-	case *ObjThumbURL:
-		return &v.Object
-	case *ObjThumb:
-		return &v.Object
-	case *ObjectURL:
-		return &v.Object
-	case *ObjectProvider:
-		return &v.Object
-	case *Object:
-		return v
-	}
-	return nil
 }
 
 // Merge
@@ -243,20 +236,51 @@ func (om *ObjMerge) Reset() {
 	om.set.Clear()
 }
 
-// IDName 文件ID，文件名称，有的网盘使用文件id管理文件，有的使用路径名称
-type IDName struct {
-	ID   string `json:"id" form:"id"`
-	Name string `json:"name" form:"name"`
+type ObjMask uint8
+
+func (m ObjMask) GetObjMask() ObjMask {
+	return m
 }
 
-type RenameObj struct {
-	ID      string `json:"id"` //文件id，部分网盘需要，如果没有可以不传
-	SrcName string `json:"src_name"`
-	NewName string `json:"new_name"`
+const (
+	Virtual ObjMask = 1 << iota
+	NoRename
+	NoRemove
+	NoMove
+	NoCopy
+	NoWrite
+	Temp
+)
+const (
+	Locked   = NoRename | NoRemove | NoMove
+	ReadOnly = Locked | NoWrite // NoRename | NoDelete | NoMove | NoWrite
+)
+
+type ObjWrapMask struct {
+	Obj
+	Mask ObjMask
 }
 
-type Hash struct {
-	Md5      string `json:"md5"`
-	Md5256KB string `json:"md5_256kb"`
-	Sha1     string `json:"sha1"`
+func (m *ObjWrapMask) Unwrap() Obj {
+	return m.Obj
+}
+func (m *ObjWrapMask) GetObjMask() ObjMask {
+	return m.Mask
+}
+
+func GetObjMask(obj Obj) ObjMask {
+	for {
+		switch o := obj.(type) {
+		case interface{ GetObjMask() ObjMask }:
+			return o.GetObjMask()
+		case ObjUnwrap:
+			obj = o.Unwrap()
+		default:
+			return 0
+		}
+	}
+}
+
+func ObjHasMask(obj Obj, mask ObjMask) bool {
+	return GetObjMask(obj)&mask != 0
 }

@@ -362,22 +362,20 @@ func getStoragesByPath(path string) []driver.Driver {
 // for example, there are: /a/b,/a/c,/a/d/e,/a/b.balance1,/av
 // GetStorageVirtualFilesByPath(/a) => b,c,d
 func GetStorageVirtualFilesByPath(prefix string) []model.Obj {
-	return getStorageVirtualFilesByPath(prefix, func(_ driver.Driver, obj model.Obj) model.Obj {
-		return obj
-	})
+	return getStorageVirtualFilesByPath(prefix, nil, "")
 }
 
-func GetStorageVirtualFilesWithDetailsByPath(ctx context.Context, prefix string, hideDetails, refresh bool) []model.Obj {
+func GetStorageVirtualFilesWithDetailsByPath(ctx context.Context, prefix string, hideDetails, refresh bool, filterByName string) []model.Obj {
 	if hideDetails {
-		return GetStorageVirtualFilesByPath(prefix)
+		return getStorageVirtualFilesByPath(prefix, nil, filterByName)
 	}
 	return getStorageVirtualFilesByPath(prefix, func(d driver.Driver, obj model.Obj) model.Obj {
+		if _, ok := obj.(*model.ObjStorageDetails); ok {
+			return obj
+		}
 		ret := &model.ObjStorageDetails{
-			Obj: obj,
-			StorageDetailsWithName: model.StorageDetailsWithName{
-				StorageDetails: nil,
-				DriverName:     d.Config().Name,
-			},
+			Obj:            obj,
+			StorageDetails: nil,
 		}
 		resultChan := make(chan *model.StorageDetails, 1)
 		go func(dri driver.Driver) {
@@ -395,10 +393,10 @@ func GetStorageVirtualFilesWithDetailsByPath(ctx context.Context, prefix string,
 		case <-time.After(time.Second):
 		}
 		return ret
-	})
+	}, filterByName)
 }
 
-func getStorageVirtualFilesByPath(prefix string, rootCallback func(driver.Driver, model.Obj) model.Obj) []model.Obj {
+func getStorageVirtualFilesByPath(prefix string, rootCallback func(driver.Driver, model.Obj) model.Obj, filterByName string) []model.Obj {
 	files := make([]model.Obj, 0)
 	storages := storagesMap.Values()
 	// 存储排序
@@ -409,57 +407,60 @@ func getStorageVirtualFilesByPath(prefix string, rootCallback func(driver.Driver
 		return storages[i].GetStorage().Order < storages[j].GetStorage().Order
 	})
 
-	prefix = utils.FixAndCleanPath(prefix)
+	if !strings.HasSuffix(prefix, "/") {
+		prefix += "/"
+	}
 	set := make(map[string]int)
 	var wg sync.WaitGroup
 	for _, v := range storages {
-		//过滤掉负载均衡盘
-		mountPath := utils.GetActualMountPath(v.GetStorage().MountPath)
-		// mountPath可以不止有一层，比如可以把123pan的某个目录挂载到/union/123pan，把百度网盘的某个目录挂载到/union/second/baidu
-		// 把115盘的某个目录挂载到/union/three/four/five/115pan，把本地某个目录挂载到/union/123pan/local
-		// 这样就形成了一个虚拟的文件夹，union目录并没有像挂载目录一样直接对应某个网盘的目录
-		// mountPath取值为
-		// 	/union/123pan
-		// 	/union/123pan/local
-		// 	/union/second/baidu
-		// 	/union/three/four/five/115pan
-		// 所以当访问/union/123pan时，就需要过滤掉
-		// /union/123pan（第一个验证条件，因为这里要获取的是虚拟文件夹，123pan的文件需要通过api获取），
-		// 以及剩余的存储（第二个验证条件），但是不能过滤掉/union/123pan/local
 		// Exclude prefix itself and non prefix
-		if len(prefix) >= len(mountPath) || !utils.IsSubPath(prefix, mountPath) {
+		p, found := strings.CutPrefix(utils.GetActualMountPath(v.GetStorage().MountPath), prefix)
+		if !found || p == "" {
 			continue
 		}
-		names := strings.SplitN(strings.TrimPrefix(mountPath[len(prefix):], "/"), "/", 2)
-		idx, ok := set[names[0]]
-		if !ok {
-			set[names[0]] = len(files)
-			obj := &model.Object{
-				Name:     names[0],
-				Size:     0,
-				Modified: v.GetStorage().Modified,
-				IsFolder: true,
+		name, _, found := strings.Cut(p, "/")
+		if filterByName != "" && name != filterByName {
+			continue
+		}
+
+		if idx, ok := set[name]; ok {
+			if !found {
+				files[idx].(*model.Object).Mask = model.Locked | model.Virtual
+				if rootCallback != nil {
+					wg.Add(1)
+					go func() {
+						defer wg.Done()
+						files[idx] = rootCallback(v, files[idx])
+					}()
+				}
 			}
-			if len(names) == 1 {
-				idx = len(files)
-				files = append(files, obj)
+			continue
+		}
+		set[name] = len(files)
+		obj := &model.Object{
+			Name:     name,
+			Modified: v.GetStorage().Modified,
+			IsFolder: true,
+		}
+		if !found {
+			idx := len(files)
+			obj.Mask = model.Locked | model.Virtual
+			files = append(files, obj)
+			if rootCallback != nil {
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
 					files[idx] = rootCallback(v, files[idx])
 				}()
-			} else {
-				files = append(files, obj)
 			}
-		} else if len(names) == 1 {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				files[idx] = rootCallback(v, files[idx])
-			}()
+		} else {
+			obj.Mask = model.ReadOnly | model.Virtual
+			files = append(files, obj)
 		}
 	}
-	wg.Wait()
+	if rootCallback != nil {
+		wg.Wait()
+	}
 	return files
 }
 

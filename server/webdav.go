@@ -93,8 +93,8 @@ func WebDAVAuth(c *gin.Context) {
 		c.Abort()
 		return
 	}
-	user, err := op.GetUserByName(username)
-	if err != nil || user.ValidateRawPassword(password) != nil {
+	user, ok := tryLogin(username, password)
+	if !ok {
 		if c.Request.Method == "OPTIONS" {
 			common.GinWithValue(c, conf.UserKey, guest)
 			c.Next()
@@ -144,4 +144,17 @@ func WebDAVAuth(c *gin.Context) {
 	}
 	common.GinWithValue(c, conf.UserKey, user)
 	c.Next()
+}
+
+func tryLogin(username, password string) (*model.User, bool) {
+	user, err := op.GetUserByName(username)
+	if err == nil {
+		err = user.ValidateRawPassword(password)
+		if err != nil && setting.GetBool(conf.LdapLoginEnabled) && user.AllowLdap {
+			err = common.HandleLdapLogin(username, password)
+		}
+	} else if setting.GetBool(conf.LdapLoginEnabled) && model.CanWebdavRead(int32(setting.GetInt(conf.LdapDefaultPermission, 0))) {
+		user, err = tryLdapLoginAndRegister(username, password)
+	}
+	return user, err == nil
 }

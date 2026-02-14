@@ -269,7 +269,8 @@ func checkRelativePath(path string) error {
 }
 
 type RemoveReq struct {
-	Names []model.IDName `json:"names"`
+	Dir   string   `json:"dir"`
+	Names []string `json:"names"`
 }
 
 func FsRemove(c *gin.Context) {

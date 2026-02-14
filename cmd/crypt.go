@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"log"
 	"os"
 	"path"
 	"path/filepath"
@@ -16,8 +15,6 @@ import (
 	"github.com/OpenListTeam/OpenList/v4/internal/fs"
 	mmm "github.com/OpenListTeam/OpenList/v4/internal/model"
 	"github.com/OpenListTeam/OpenList/v4/internal/op"
-	"github.com/spf13/cobra"
-
 	rcCrypt "github.com/rclone/rclone/backend/crypt"
 	"github.com/rclone/rclone/fs/config/configmap"
 	"github.com/rclone/rclone/fs/config/obscure"

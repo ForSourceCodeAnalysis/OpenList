@@ -109,7 +109,6 @@ func Init(e *gin.Engine) {
 	if flags.Debug || flags.Dev {
 		debug(g.Group("/debug"))
 	}
-
 	static.Static(g, func(handlers ...gin.HandlerFunc) {
 		e.NoRoute(handlers...)
 	})
@@ -202,23 +201,17 @@ func _fs(g *gin.RouterGroup) {
 	g.Any("/dirs", handles.FsDirs)
 	g.POST("/mkdir", handles.FsMkdir)
 	g.POST("/rename", handles.FsRename)
-	g.POST("/batch_rename", middlewares.FsRename, handles.FsBatchRename)
+	g.POST("/batch_rename", handles.FsBatchRename)
 	g.POST("/regex_rename", handles.FsRegexRename)
 	g.POST("/move", handles.FsMove)
 	g.POST("/recursive_move", handles.FsRecursiveMove)
 	g.POST("/copy", handles.FsCopy)
-	g.POST("/remove", middlewares.FsRemove, handles.FsRemove)
+	g.POST("/remove", handles.FsRemove)
 	g.POST("/remove_empty_directory", handles.FsRemoveEmptyDirectory)
 	uploadLimiter := middlewares.UploadRateLimiter(stream.ClientUploadLimit)
 	g.PUT("/put", middlewares.FsUp, uploadLimiter, handles.FsStream)
 	g.PUT("/form", middlewares.FsUp, uploadLimiter, handles.FsForm)
 	g.POST("/link", middlewares.AuthAdmin, handles.Link)
-
-	g.GET("/upload/info", middlewares.FsSliceUp, handles.FsUpInfo)
-	g.POST("/preup", middlewares.FsSliceUp, handles.FsPreup)
-	g.POST("/slice_upload", middlewares.FsSliceUp, handles.FsUpSlice)
-	g.POST("/slice_upload_complete", middlewares.FsSliceUp, handles.FsUpSliceComplete)
-
 	// g.POST("/add_aria2", handles.AddOfflineDownload)
 	// g.POST("/add_qbit", handles.AddQbittorrent)
 	// g.POST("/add_transmission", handles.SetTransmission)

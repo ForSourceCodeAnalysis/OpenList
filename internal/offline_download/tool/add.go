@@ -2,7 +2,6 @@ package tool
 
 import (
 	"context"
-
 	"net/url"
 	stdpath "path"
 	"path/filepath"

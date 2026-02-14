@@ -6,7 +6,6 @@ import (
 	"slices"
 
 	"github.com/OpenListTeam/OpenList/v4/internal/conf"
-	"github.com/OpenListTeam/OpenList/v4/internal/driver"
 	"github.com/OpenListTeam/OpenList/v4/internal/errs"
 	"github.com/OpenListTeam/OpenList/v4/internal/fs"
 	"github.com/OpenListTeam/OpenList/v4/internal/model"
@@ -137,7 +136,11 @@ func FsRecursiveMove(c *gin.Context) {
 }
 
 type BatchRenameReq struct {
-	RenameObjects []model.RenameObj `json:"rename_objects"`
+	SrcDir        string `json:"src_dir"`
+	RenameObjects []struct {
+		SrcName string `json:"src_name"`
+		NewName string `json:"new_name"`
+	} `json:"rename_objects"`
 }
 
 func FsBatchRename(c *gin.Context) {
@@ -146,15 +149,41 @@ func FsBatchRename(c *gin.Context) {
 		common.ErrorResp(c, err, 400)
 		return
 	}
-	storage := c.Request.Context().Value(conf.StorageKey).(driver.Driver)
-	path := c.Request.Context().Value(conf.PathKey).(string)
-
-	err := fs.BatchRename(c.Request.Context(), storage, path, req.RenameObjects)
-	if err != nil {
-		common.ErrorResp(c, err, 500)
+	user := c.Request.Context().Value(conf.UserKey).(*model.User)
+	if !user.CanRename() {
+		common.ErrorResp(c, errs.PermissionDenied, 403)
 		return
 	}
 
+	reqPath, err := user.JoinPath(req.SrcDir)
+	if err != nil {
+		common.ErrorResp(c, err, 403)
+		return
+	}
+
+	meta, err := op.GetNearestMeta(reqPath)
+	if err != nil {
+		if !errors.Is(errors.Cause(err), errs.MetaNotFound) {
+			common.ErrorResp(c, err, 500, true)
+			return
+		}
+	}
+	common.GinWithValue(c, conf.MetaKey, meta)
+	for _, renameObject := range req.RenameObjects {
+		if renameObject.SrcName == "" || renameObject.NewName == "" {
+			continue
+		}
+		err = checkRelativePath(renameObject.NewName)
+		if err != nil {
+			common.ErrorResp(c, err, 403)
+			return
+		}
+		filePath := fmt.Sprintf("%s/%s", reqPath, renameObject.SrcName)
+		if err := fs.Rename(c.Request.Context(), filePath, renameObject.NewName); err != nil {
+			common.ErrorResp(c, err, 500)
+			return
+		}
+	}
 	common.SuccessResp(c)
 }
 

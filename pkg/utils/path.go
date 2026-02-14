@@ -3,13 +3,12 @@ package utils
 import (
 	"net/url"
 	stdpath "path"
-	"path/filepath"
 	"strings"
 
 	"github.com/OpenListTeam/OpenList/v4/internal/errs"
 )
 
-// FixAndCleanPath 格式化路径，以/开头，并且不以/结尾，除非是根目录
+// FixAndCleanPath
 // The upper layer of the root directory is still the root directory.
 // So ".." And "." will be cleared
 // for example
@@ -18,7 +17,7 @@ import (
 // 3. "../.x." or "./.x." => "/.x."
 // 4. "x//\\y" = > "/z/x"
 func FixAndCleanPath(path string) string {
-	path = filepath.ToSlash(path)
+	path = strings.ReplaceAll(path, "\\", "/")
 	if !strings.HasPrefix(path, "/") {
 		path = "/" + path
 	}

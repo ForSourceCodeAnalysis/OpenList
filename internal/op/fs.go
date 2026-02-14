@@ -2,8 +2,6 @@ package op
 
 import (
 	"context"
-	"path"
-
 	stdpath "path"
 	"strconv"
 	"strings"
@@ -184,8 +182,6 @@ func Get(ctx context.Context, storage driver.Driver, path string, excludeTempObj
 	}
 
 	// get the obj directly without list so that we can reduce the io
-	// 如果支持根据路径获取文件详情，直接获取文件详情
-	// 根据搜索发现，定义这个方法的驱动并没有几个，所以大部分情况下都不会执行这部分
 	if g, ok := storage.(driver.Getter); ok {
 		obj, err := g.Get(ctx, path)
 		if err == nil {
@@ -505,36 +501,6 @@ func Rename(ctx context.Context, storage driver.Driver, srcPath, dstName string)
 		go objsUpdateHook(context.WithoutCancel(ctx), storage, stdpath.Join(dstDirPath, srcObj.GetName()), true)
 	}
 	return nil
-}
-
-func BatchRename(ctx context.Context, storage driver.Driver, srcPath string, renameObjects []model.RenameObj, lazyCache ...bool) error {
-	srcPath = utils.FixAndCleanPath(srcPath)
-	srcRawObj, err := Get(ctx, storage, srcPath)
-	if err != nil {
-		return errors.WithMessage(err, "failed to get src object")
-	}
-	srcObj := model.UnwrapObj(srcRawObj)
-	srcDirPath := stdpath.Dir(srcPath)
-
-	switch s := storage.(type) {
-	case driver.BatchRename:
-		err := s.BatchRename(ctx, srcObj, renameObjects)
-		if err == nil {
-			ClearCache(storage, srcDirPath)
-			return nil
-		}
-		return err
-	default:
-		for _, renameObject := range renameObjects {
-			err := Rename(ctx, storage, path.Join(srcPath, renameObject.SrcName), renameObject.NewName, lazyCache...)
-			if err != nil {
-				log.Errorf("failed rename %s to %s: %+v", renameObject.ID, renameObject.NewName, err)
-				return err
-			}
-		}
-	}
-	return nil
-
 }
 
 // Copy Just copy file[s] in a storage

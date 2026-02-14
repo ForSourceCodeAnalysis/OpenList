@@ -192,6 +192,5 @@ const (
 	UserAgentKey
 	PathKey
 	SharingIDKey
-	StorageKey
 	SkipHookKey
 )

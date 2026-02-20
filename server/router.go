@@ -2,6 +2,7 @@ package server
 
 import (
 	"github.com/OpenListTeam/OpenList/v4/cmd/flags"
+	"github.com/OpenListTeam/OpenList/v4/extensions"
 	"github.com/OpenListTeam/OpenList/v4/internal/conf"
 	"github.com/OpenListTeam/OpenList/v4/internal/message"
 	"github.com/OpenListTeam/OpenList/v4/internal/sign"
@@ -106,9 +107,11 @@ func Init(e *gin.Engine) {
 	_task(auth.Group("/task", middlewares.AuthNotGuest))
 	_sharing(auth.Group("/share", middlewares.AuthNotGuest))
 	admin(auth.Group("/admin", middlewares.AuthAdmin))
+	extensions.RegisterRoute(g)
 	if flags.Debug || flags.Dev {
 		debug(g.Group("/debug"))
 	}
+
 	static.Static(g, func(handlers ...gin.HandlerFunc) {
 		e.NoRoute(handlers...)
 	})

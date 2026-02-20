@@ -1,20 +1,13 @@
 package baidu_netdisk
 
-// import (
-// 	"context"
-// 	"encoding/json"
-// 	"io"
-// 	"net/http"
-// 	"path/filepath"
-// 	"strconv"
-// 	"strings"
-// 	"time"
+import (
+	"context"
+	"path/filepath"
 
-// 	"github.com/OpenListTeam/OpenList/v4/drivers/base"
-// 	"github.com/OpenListTeam/OpenList/v4/internal/model"
-// 	"github.com/go-resty/resty/v2"
-// 	log "github.com/sirupsen/logrus"
-// )
+	"github.com/OpenListTeam/OpenList/v4/drivers/base"
+	"github.com/OpenListTeam/OpenList/v4/extensions/models"
+	"github.com/OpenListTeam/OpenList/v4/internal/model"
+)
 
 // func (d *BaiduNetdisk) GetUploadInfo() *model.UploadInfo {
 // 	return &model.UploadInfo{
@@ -24,28 +17,30 @@ package baidu_netdisk
 // 	}
 // }
 
-// func (d *BaiduNetdisk) BatchRename(ctx context.Context, obj model.Obj, renameObjs []model.RenameObj) error {
-// 	data := []base.Json{}
-// 	for _, ro := range renameObjs {
-// 		data = append(data, base.Json{
-// 			"path":    filepath.Join(obj.GetPath(), ro.SrcName),
-// 			"newname": ro.NewName,
-// 		})
-// 	}
+// BatchRename 批量重命名
+func (d *BaiduNetdisk) BatchRename(ctx context.Context, srcDir model.Obj, renameObjs []models.DriverRenameObj) error {
+	data := []base.Json{}
+	for _, ro := range renameObjs {
+		data = append(data, base.Json{
+			"path":    filepath.Join(srcDir.GetPath(), ro.GetName()),
+			"newname": ro.NewName,
+		})
+	}
 
-// 	_, err := d.manage("rename", data)
-// 	return err
-// }
+	_, err := d.manage("rename", data)
+	return err
+}
 
-// func (d *BaiduNetdisk) BatchRemove(ctx context.Context, srcObj model.Obj, objs []model.IDName) error {
-// 	data := []string{}
-// 	for _, obj := range objs {
-// 		data = append(data, filepath.Join(srcObj.GetPath(), obj.Name))
-// 	}
+// BatchRemove 批量删除
+func (d *BaiduNetdisk) BatchRemove(ctx context.Context, srcDir model.Obj, objs []model.Obj) error {
+	data := []string{}
+	for _, obj := range objs {
+		data = append(data, filepath.Join(srcDir.GetPath(), obj.GetName()))
+	}
 
-// 	_, err := d.manage("delete", data)
-// 	return err
-// }
+	_, err := d.manage("delete", data)
+	return err
+}
 
 // // SliceUpload 上传分片
 // func (d *BaiduNetdisk) SliceUpload(c context.Context, req *tables.SliceUpload, sliceno uint, fd io.Reader) error {

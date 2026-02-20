@@ -11,9 +11,10 @@ import (
 	"time"
 
 	dcrypt "github.com/OpenListTeam/OpenList/v4/drivers/crypt"
+	"github.com/OpenListTeam/OpenList/v4/extensions/models"
+	exfs "github.com/OpenListTeam/OpenList/v4/extensions/services/fs"
 	"github.com/OpenListTeam/OpenList/v4/internal/db"
 	"github.com/OpenListTeam/OpenList/v4/internal/fs"
-	mmm "github.com/OpenListTeam/OpenList/v4/internal/model"
 	"github.com/OpenListTeam/OpenList/v4/internal/op"
 	rcCrypt "github.com/rclone/rclone/backend/crypt"
 	"github.com/rclone/rclone/fs/config/configmap"
@@ -372,7 +373,7 @@ func cryptNames(path string) {
 
 	}
 	log.Printf("get list success,path: %v\n", path)
-	var renameObjects []mmm.RenameObj
+	var renameObjects []models.RenameObj
 
 	for _, obj := range objs {
 		isdir := obj.IsDir()
@@ -408,8 +409,7 @@ func cryptNames(path string) {
 
 		}
 
-		renameObjects = append(renameObjects, mmm.RenameObj{
-			ID:      obj.GetID(),
+		renameObjects = append(renameObjects, models.RenameObj{
 			SrcName: obj.GetName(),
 			NewName: newname,
 		})
@@ -420,7 +420,7 @@ func cryptNames(path string) {
 	}
 	//执行批量重命名
 	storage, actualPath, err := op.GetStorageAndActualPath(path)
-	err = fs.BatchRename(context.Background(), storage, actualPath, renameObjects)
+	err = exfs.BatchRename(context.Background(), storage, actualPath, renameObjects)
 	if err != nil {
 		log.Fatalf("batchrename error : %v\n", err)
 	}

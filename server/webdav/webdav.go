@@ -22,6 +22,7 @@ import (
 	"github.com/OpenListTeam/OpenList/v4/internal/net"
 	"github.com/OpenListTeam/OpenList/v4/internal/setting"
 	"github.com/OpenListTeam/OpenList/v4/internal/stream"
+	"github.com/sirupsen/logrus"
 
 	"github.com/OpenListTeam/OpenList/v4/internal/errs"
 	"github.com/OpenListTeam/OpenList/v4/internal/fs"
@@ -317,6 +318,7 @@ func (h *Handler) handleDelete(w http.ResponseWriter, r *http.Request) (status i
 }
 
 func (h *Handler) handlePut(w http.ResponseWriter, r *http.Request) (status int, err error) {
+	logrus.Infof("webdav put reqpath: %s \n", r.URL.Path)
 	defer func() {
 		if n, _ := io.ReadFull(r.Body, []byte{0}); n == 1 {
 			_, _ = utils.CopyWithBuffer(io.Discard, r.Body)
@@ -344,6 +346,7 @@ func (h *Handler) handlePut(w http.ResponseWriter, r *http.Request) (status int,
 		return http.StatusForbidden, err
 	}
 	size := r.ContentLength
+	logrus.Infof("webdav put real path: %s, size: %d \n", reqPath, size)
 	if size < 0 {
 		sizeStr := r.Header.Get("X-File-Size")
 		if sizeStr != "" {
